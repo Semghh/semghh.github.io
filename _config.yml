@@ -1,1 +1,14 @@
-theme: jekyll-theme-cayman
+title: myNote
+lang: chinese
+description: a convenient note for search and review knowledge
+
+remote_theme: rundocs/jekyll-rtd-theme
+
+readme_index:
+  with_frontmatter: true
+
+exclude:
+  - Makefile
+  - CNAME
+  - Gemfile
+  - Gemfile.lock
