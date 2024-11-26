@@ -8,149 +8,197 @@ tags: jekyll RubyGems
 
 * content
 {:toc}
+一直都比较好奇Mybatis的参数名解析(@Value)  是怎么做的。虽然大致也能猜到是反射拿到注解信息。
 
-一直以来都想搭建一个自己的博客，但是近半年做项目太忙，再加上教研室的网络很坑爹，所以也一直没顾得上。之前用过 WordPress 托管在免费的京东云擎上，但是速度太慢。在知乎上看到一些相关的内容，于是选择了在github上用jekyll搭建博客。
-
-
-
+今天从debug源码出发，开始分析是哪些类完成的命名解析。
 
 
-## 搭建过程
 
-在jekyll的官网上 [http://jekyllrb.com/](http://jekyllrb.com/) 其实已经说得比较明白了，我在这里还是简单的说一下吧。我用的是Windows系统。    
-主要环节有：安装Ruby，安装RubyGems，安装jekyll，安装代码高亮插件，安装node.js
 
-### 安装Ruby
 
-ruby官网下载安装：[https://www.ruby-lang.org/en/downloads/](https://www.ruby-lang.org/en/downloads/)
+# 1.@Value
 
-安装完成后配置环境变量
+mybatis支持使用`@Value` 来为Mapper方法的参数起别名:
 
-在命令提示符中，得到ruby版本号，如下图，即安装成功
+```java
+//fooMapper.java
 
-![](http://ww4.sinaimg.cn/large/7011d6cfjw1f2ue0e393vj20cu00t748.jpg)
-
-### 安装RubyGems
-
-官网下载 [http://rubygems.org/pages/download](http://rubygems.org/pages/download) rubygems-2.4.5.zip   
-
-cd到RubyGems目录   
-
-![](http://ww1.sinaimg.cn/large/7011d6cfjw1f2ue1l2yscj20gk02amxj.jpg)
-
-执行安装   
-
-![](http://ww1.sinaimg.cn/large/7011d6cfjw1f2ue1w8eqnj20bx00hglg.jpg)  
-
-### 用RubyGems安装Jekyll
-
-执行下面的语句安装   
-
-![](http://ww4.sinaimg.cn/large/7011d6cfjw1f2ue2g2p3uj207x00ft8j.jpg)
-
-安装结束画面   
-
-![](http://ww4.sinaimg.cn/large/7011d6cfjw1f2ue32drwhj20hv09xq5m.jpg)
-
-至此jekyll就已经安装完毕了，后续就是个性化的自己设定了。
-
-### 创建博客
-
-在d盘新建一个工作区jekyllWorkspace
-
-cd到jekyllWorkspace   
-
-执行jekyll new name创建新的工作区   
-
-![](http://ww3.sinaimg.cn/large/7011d6cfjw1f2ue3lt31nj20cj02nt8u.jpg)
-
-文件结构如下：   
-
-![](http://ww1.sinaimg.cn/large/7011d6cfjw1f2ue3ujsybj20ek06wabh.jpg)
-
-cd到博客文件夹，开启服务器   
-
-![](http://ww1.sinaimg.cn/large/7011d6cfjw1f2ue47y9lgj20ao00f0sl.jpg)
-
-watch为了检测文件夹内的变化，即修改后不需要重新启动jekyll
-
-我的环境下启动报错(你的可能没有)，再安装yajl-ruby和rouge  
-
-![](http://ww4.sinaimg.cn/large/7011d6cfjw1f2ue4nelnxj20dd077q49.jpg)
-
-再次启动服务器成功
-
-![](http://ww4.sinaimg.cn/large/7011d6cfjw1f2ue4v42koj20g505bdgy.jpg)
-
-访问 http://localhost:4000/   
-
-![](http://ww1.sinaimg.cn/large/7011d6cfjw1f2ue56ckwoj20je0eumz3.jpg)
-
-详细文章页面   
-
-![](http://ww2.sinaimg.cn/large/7011d6cfjw1f2ue5f3j9cj20je0gyq7a.jpg)
-
-## 后续
-
-*  整个安装过程参考了jekyll官网，注意jekyll还有一个简体中文官网，不过比较坑（我就被坑了），有些内容没有翻译过来，有可能会走弯路，建议如果想看中文的相关资料，也要中英对照着阅读。[jekyll中文网 http://jekyllcn.com](http://jekyllcn.com), [jekyll英文网 http://jekyllrb.com](http://jekyllrb.com)
-*  jekyll中的css是用sass写的，当然直接在`_sass/_layout.scss`中添加css也是可以的。
-*  本文是用Markdown格式来写的，相关语法可参考： [Markdown 语法说明 (简体中文版) http://wowubuntu.com/markdown/](http://wowubuntu.com/markdown/)  
-*  按照本文的说明搭建完博客后，用`github Pages`托管就可以看到了。注意，在github上面好像不支持rouge，所以要push到github上时，我将配置文件_config.yml中的代码高亮改变为`highlighter: pygments`就可以了
-*  博客默认是没有评论系统的，本文的评论系统使用了多说，详细安装办法可访问[多说官网 http://duoshuo.com/](http://duoshuo.com/)，当然也可以使用[搜狐畅言 http://changyan.sohu.com/](http://changyan.sohu.com/)作为评论系统。
-*  也可以绑定自己的域名，如果没有域名，可以在[godaddy http://www.godaddy.com/](http://www.godaddy.com/)上将域名放入购物车等待降价，买之。
-*  祝各位新年快乐！
-
----
-
-## 可能出现的问题
-
-### `hitimes/hitimes (LoadError)`
-
-**错误代码：**
-
-```
-C:/Ruby22/lib/ruby/2.2.0/rubygems/core_ext/kernel_require.rb:54:in `require': cannot load such file -- hitimes/hitimes (LoadError)
+List<TCtInfoManagerInfo> getTCtInfoManagerInfoByProjectSubId(@Value("id")String projectSubId,
+                                                             @Value("foo")String foo,
+                                                             @Value("foo1")String foo1);
 ```
 
-**解决方法：**
+并在xml中进行调用： 
 
-在stackoverflow上又一个很好的解决方法。[hitimes require error when running jekyll serve on windows 8.1](http://stackoverflow.com/questions/28985481/hitimes-require-error-when-running-jekyll-serve-on-windows-8-1) 虽然上面的题主问的是 win 8.1 系统下的情况，但是同样适用于 win7。下面我简单翻译一下错误原因和解决方法。
+```xml
+    <select id="getTCtInfoManagerInfoByProjectSubId"
+            resultType="com.bjdv.es.web.service.dto.TCtInfoManagerInfo">
+		SELECT *
+		FROM `project_sub_team` A LEFT JOIN `t_ct_info` B ON A.info_id = B.id 
+        	  					  LEFT JOIN `sys_user` C ON C.id = B.manager
+		WHERE A.sub_id = #{id} and A.foo = #{foo} and A.foo1 = {foo1}
+	</select>
+```
 
-> 可能是 Ruby 2.2 和 hitimes-1.2.2-x86-mingw32 中有一些 ABI 变化，少了一些相关的类库。
+
+
+我们称这种为 参数名（ParamName）。
+
+
+
+
+
+
+
+事实上每个参数都有一个默认名，我们可以这样使用: 
+
+```java
+//fooMapper.java
+
+List<TCtInfoManagerInfo> getTCtInfoManagerInfoByProjectSubId(String projectSubId,
+                                                             String foo,
+                                                             String foo1);
+```
+
+
+
+```xml
+    <select id="getTCtInfoManagerInfoByProjectSubId"
+            resultType="com.bjdv.es.web.service.dto.TCtInfoManagerInfo">
+		SELECT *
+		FROM `project_sub_team` A LEFT JOIN `t_ct_info` B ON A.info_id = B.id 
+        	  					  LEFT JOIN `sys_user` C ON C.id = B.manager
+		WHERE A.sub_id = #{param1} and A.foo = #{param2} and A.foo1 = {param3}
+	</select>
+```
+
+
+
+mybatis在解析命名的时候，为没有命名的参数，存入了默认命名。它取决于方法中参数的顺序，依次为：
+
+param1 param2 param3...
+
+并且，这个名称是冗余的名称，即使定义了`@Value` ，我们也可以使用。
+
+
+
+
+
+
+
+命名解析规则是： 
+
+- *如果参数使用* `@Param("<value>")` *修饰，那么参数的名称为*`<value>` 。 如果没有使用@param修饰，那么使用参数索引顺序。
+- 对于特殊参数（RowBounds 或 ResultHandler ），不会算作param (也就是无法通过 param+index 来引用他们)
+
+
+
+例如：
+
+> aMethod(@Param("M") int a, @Param("N") int b)  则映射为  {{0, "M"}, {1, "N"}}
 >
-> 所以卸载 hitimes 并通过 `--platform ruby` 重装即可。代码如下：
+> aMethod(int a, int b)   则映射为  {{0, "0"}, {1, "1"}}
+>
+> aMethod(int a, RowBounds rb, int b)    则映射为  {{0, "0"}, {2, "1"}} 
 
+
+
+
+
+
+
+# 2.参数名是如何解析的？
+
+Mybatis通过`org.apache.ibatis.reflection.ParamNameResolver`完成参数解析的。
+
+
+
+每一个MapperMethod ，都会创建一个参数名解析器（ParamNameResolver），在它的构造器中，完成了 
+
+“ 参数在方法中的索引-> 参数名”的解析：
+
+```java
+public ParamNameResolver(Configuration config, Method method) {
+  this.useActualParamName = config.isUseActualParamName();//默认true，使用参数真实的名称
+  final Class<?>[] paramTypes = method.getParameterTypes();//每个参数的类型
+  final Annotation[][] paramAnnotations = method.getParameterAnnotations();//每个参数的注解
+  final SortedMap<Integer, String> map = new TreeMap<>();
+  int paramCount = paramAnnotations.length;
+  // 从每个参数中获得名称
+  for (int paramIndex = 0; paramIndex < paramCount; paramIndex++) {
+    if (isSpecialParameter(paramTypes[paramIndex])) {//如果是特殊参数，则跳过
+      // skip special parameters
+      continue;
+    }
+    String name = null;
+    for (Annotation annotation : paramAnnotations[paramIndex]) {//这里可以看到遍历了每个参数注解
+      if (annotation instanceof Param) {
+        hasParamAnnotation = true;
+        name = ((Param) annotation).value();
+        break;
+      }
+    }
+    if (name == null) {
+      // @Param was not specified.
+      if (useActualParamName) {
+        name = getActualParamName(method, paramIndex);
+      }
+      if (name == null) {
+        // use the parameter index as the name ("0", "1", ...)
+        // gcode issue #71
+        name = String.valueOf(map.size());//参数没有声明名字，用map.size()代替
+      }
+    }
+    map.put(paramIndex, name);
+  }
+  names = Collections.unmodifiableSortedMap(map);
+}
 ```
-gem uni hitimes
-**Remove ALL versions**
-gem ins hitimes -v 1.2.1 --platform ruby
+
+
+
+随后，在获取参数名的时候，会使用 `GENERIC_NAME_PREFIX` 静态变量最为前缀，拼接索引+1 。
+
+而`GENERIC_NAME_PREFIX` 的默认值为 `param` ，由此出现了默认名 `param1` `param2`
+
+```java
+//ParameterNameResolver.java
+
+public Object getNamedParams(Object[] args) {
+  final int paramCount = names.size();
+  if (args == null || paramCount == 0) {
+    return null;
+  } else if (!hasParamAnnotation && paramCount == 1) {
+      //没有 Param注解，且 只有1个参数的情况 ，返回参数中的第一个key。  
+    Object value = args[names.firstKey()];//值总是为0
+      //将参数返回为一个ParamMap(ibatis内部的Map，重写了get方法，当get不到key时抛出异常)  
+      // 或 返回null
+    return wrapToMapIfCollection(value, useActualParamName ? names.get(0) : null);
+  } else {
+      //如果是多参数，则执行这个分支
+    final Map<String, Object> param = new ParamMap<>();
+    int i = 0;
+    for (Map.Entry<Integer, String> entry : names.entrySet()) {
+        //从解析的names Map拷贝key 和value
+      param.put(entry.getValue(), args[entry.getKey()]); 
+        //添加通用的参数名称 （例如 param1, param2 ,param3），
+      final String genericParamName = GENERIC_NAME_PREFIX + (i + 1);
+      // 避免不会重写 `@Param("param1")`的情况
+      if (!names.containsValue(genericParamName)) { //注意到是冗余的，只有出现冲突的时候，才不会放入
+        param.put(genericParamName, args[entry.getKey()]);
+      }
+      i++;
+    }
+    return param;
+  }
+}
 ```
 
-> 然后将自动重新编译 hitimes 并适用于 Ruby 2.2
-
-下面是我自己的卸载和安装过程：
-
-```
-E:\GitWorkSpace\gaohaoyang.github.io>gem uni hitimes
-
-You have requested to uninstall the gem:
-        hitimes-1.2.2-x86-mingw32
-
-timers-4.0.1 depends on hitimes (>= 0)
-If you remove this gem, these dependencies will not be met.
-Continue with Uninstall? [yN]  y
-Successfully uninstalled hitimes-1.2.2-x86-mingw32
-
-E:\GitWorkSpace\gaohaoyang.github.io>gem ins hitimes -v 1.2.1 --platform ruby
-Fetching: hitimes-1.2.1.gem (100%)
-Temporarily enhancing PATH to include DevKit...
-Building native extensions.  This could take a while...
-Successfully installed hitimes-1.2.1
-Parsing documentation for hitimes-1.2.1
-Installing ri documentation for hitimes-1.2.1
-Done installing documentation for hitimes after 1 seconds
-1 gem installed
-```
 
 
-关于，[hitimes](https://rubygems.org/gems/hitimes/versions/1.2.2) 是一个快速的高效的定时器解决方案库，详情可以去官网查看。
+并且，这个方法将 List 、Array的参数都转换为了Map
+
+
+
+
+
