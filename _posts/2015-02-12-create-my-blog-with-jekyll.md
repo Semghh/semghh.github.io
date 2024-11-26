@@ -88,8 +88,8 @@ param1 param2 param3...
 
 命名解析规则是： 
 
-- 如果参数使用`@Param("<value>")` 修饰，那么参数的名称为`<value>` 。 如果没有使用@param修饰，那么使用参数索引顺序。
-- 对于特殊参数（RowBounds 或 ResultHandler ），不会算作param (也就是无法通过 param+index 来引用他们)
+1. 如果参数使用`@Param("<value>")` 修饰，那么参数的名称为`<value>` 。 如果没有使用@param修饰，那么使用参数索引顺序。
+2. 对于特殊参数（RowBounds 或 ResultHandler ），不会算作param (也就是无法通过 param+index 来引用他们)
 
 
 
