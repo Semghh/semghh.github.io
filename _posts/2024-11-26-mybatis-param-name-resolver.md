@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "mybatis 参数名解析器"
-categories: mybatis
+categories: 2024-11-26 20:00:00
 tags:  mybatis
 author: Semghh
 ---
@@ -18,7 +18,7 @@ author: Semghh
 
 
 
-# 1. @Value
+# @Value
 
 mybatis支持使用`@Value` 来为Mapper方法的参数起别名:
 
@@ -109,7 +109,7 @@ param1 param2 param3...
 
 
 
-# 2. 参数名是如何解析的？
+# 参数名是如何解析的？
 
 Mybatis通过`org.apache.ibatis.reflection.ParamNameResolver`完成参数解析的。
 
