@@ -1,7 +1,7 @@
 ---
 layout: post
-title:  "Jekyll 搭建静态博客"
-date:   2015-02-15 22:14:54
+title:  "Mybatis 参数名称解析器"
+date:   2024-11-25 22:14:54
 categories: jekyll
 tags: mybatis
 ---
