@@ -90,12 +90,6 @@ param1 param2 param3...
 
 
 
-
-
-
-
-例如：
-
 ```
 aMethod(@Param("M") int a, @Param("N") int b)  则映射为  {{0, "M"}, {1, "N"}}
 
@@ -103,10 +97,6 @@ aMethod(int a, int b)   则映射为  {{0, "0"}, {1, "1"}}
 
 aMethod(int a, RowBounds rb, int b)    则映射为  {{0, "0"}, {2, "1"}} 
 ```
-
-
-
-
 
 
 
