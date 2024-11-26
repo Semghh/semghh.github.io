@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "mybatis 参数名解析器"
-date:   2024-11-26 20:00:00
+title:  "mybatis 命名参数解析器"
+date:   2024-11-26 22:00:00
 categories: jekyll
-tags:  mybatis
+tags: mybatis
 ---
 
 * content
