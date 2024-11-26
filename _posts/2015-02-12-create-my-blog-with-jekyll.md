@@ -78,26 +78,7 @@ param1 param2 param3...
 
 
 
-命名解析规则是： 
-
-```
-1.如果参数使用 Param(value) 修饰，那么参数的名称为value 。
-
-
-3.对于特殊参数（RowBounds 或 ResultHandler ），不会算作param (也就是无法通过 param+index 来引用他们)
-```
-
-
-
-```
-aMethod(@Param("M") int a, @Param("N") int b)  则映射为  {{0, "M"}, {1, "N"}}
-
-aMethod(int a, int b)   则映射为  {{0, "0"}, {1, "1"}}
-
-aMethod(int a, RowBounds rb, int b)    则映射为  {{0, "0"}, {2, "1"}} 
-```
-
-
+命名解析规则是
 
 
 
