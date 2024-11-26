@@ -14,16 +14,16 @@ tags: mybatis
 
 
 
-# 1.@Value
+# 1.@Param
 
 mybatis支持使用`@Value` 来为Mapper方法的参数起别名:
 
 ```java
 //fooMapper.java
 
-List<TCtInfoManagerInfo> getTCtInfoManagerInfoByProjectSubId(@Value("id")String projectSubId,
-                                                             @Value("foo")String foo,
-                                                             @Value("foo1")String foo1);
+List<TCtInfoManagerInfo> getTCtInfoManagerInfoByProjectSubId(@Param("id")String projectSubId,
+                                                             @Param("foo")String foo,
+                                                             @Param("foo1")String foo1);
 ```
 
 并在xml中进行调用： 
@@ -84,7 +84,7 @@ param1 param2 param3...
 
 
 
-如果参数使用`@Param(value)` 修饰，那么参数的名称为`value` 。如果没有用这个注解修饰，那么使用参数索引顺序。
+如果参数使用 Param(value) 修饰，那么参数的名称为`value` 。如果没有用这个注解修饰，那么使用参数索引顺序。
 
 对于特殊参数（RowBounds 或 ResultHandler ），不会算作param (也就是无法通过 param+index 来引用他们)
 
