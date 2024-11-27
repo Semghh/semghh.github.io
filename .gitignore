@@ -5,3 +5,5 @@ _site
 .vscode
 .idea
 .DS_Store
+_posts/*.assets
+_posts/*.assets/*
