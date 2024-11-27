@@ -1,10 +1,9 @@
 ---
 layout: post
 title:  "jekyll 静态图床"
-date:   2024-11-27 22:14:54
+date:   2024-11-27 00:00:00
 categories: graalvm
 tags: native-image graalvm
-
 ---
 
 * content
