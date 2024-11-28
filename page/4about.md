@@ -17,12 +17,8 @@ type: page
 
 ## 联系我
 
-* GitHub：
-* email：
+* email：1832187999@qq.com
+* [知乎]( https://www.zhihu.com/people/yao-xi-bai-bai-o-miao-jiang)
 
 ## 友情链接
-
-
-
-## Comments
 
