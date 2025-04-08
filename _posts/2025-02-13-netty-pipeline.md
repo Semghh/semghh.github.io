@@ -601,11 +601,15 @@ DefaultAttributeMap 是属性存储的实现。
 
 然后通过 ChannelOutboundBuffer，触发高水位线，改变 `isWritable()`的返回值。
 
-随后，调用了留给子类实现的抽象方法`Abstract.doWrite()`  来写出数据。
+随后，调用了留给子类实现的抽象方法`AbstractChannel.doWrite()`  来写出数据。
 
 
 
 下面，我们看一下`NioSocketChannel.doWrite()`的实现。
+
+对于Nio来说最终调用写出数据一定是 `java.nio.channels.SocketChannel.write()`方法。
+
+TCP的 SO_SNDBUF参数会随着OS而改变，因此Netty为OS进行调整适配。
 
 ```java
 protected void doWrite(ChannelOutboundBuffer in) throws Exception {
@@ -632,9 +636,6 @@ protected void doWrite(ChannelOutboundBuffer in) throws Exception {
                 writeSpinCount -= doWrite0(in);
                 break;
             case 1: {
-                // Only one ByteBuf so use non-gathering write
-                // Zero length buffers are not added to nioBuffers by ChannelOutboundBuffer, so there is no need
-                // to check if the total size of all the buffers is non-zero.
                 ByteBuffer buffer = nioBuffers[0];
                 int attemptedBytes = buffer.remaining();
                 final int localWrittenBytes = ch.write(buffer);
@@ -642,15 +643,14 @@ protected void doWrite(ChannelOutboundBuffer in) throws Exception {
                     incompleteWrite(true);
                     return;
                 }
+                //调整一次写入的数据量大小
                 adjustMaxBytesPerGatheringWrite(attemptedBytes, localWrittenBytes, maxBytesPerGatheringWrite);
+                //将实际写入的数据量从ChannelOutboundBuffer扣除
                 in.removeBytes(localWrittenBytes);
                 --writeSpinCount;
                 break;
             }
             default: {
-                // Zero length buffers are not added to nioBuffers by ChannelOutboundBuffer, so there is no need
-                // to check if the total size of all the buffers is non-zero.
-                // We limit the max amount to int above so cast is safe
                 long attemptedBytes = in.nioBufferSize();
                 final long localWrittenBytes = ch.write(nioBuffers, 0, nioBufferCnt);
                 if (localWrittenBytes <= 0) {
@@ -667,6 +667,7 @@ protected void doWrite(ChannelOutboundBuffer in) throws Exception {
         }
     } while (writeSpinCount > 0);
 
+    //是否设置 OP_WRITE
     incompleteWrite(writeSpinCount < 0);
 }
 ```
