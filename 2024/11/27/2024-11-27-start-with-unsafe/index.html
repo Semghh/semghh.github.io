@@ -1,0 +1,753 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="John Doe">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="一开始对Unsafe的认知仅仅局限于CAS操作，随着认知增加 ，实际上：  juc包用它获得offset。  nio用Unsafe来判断平台大小端，分配内存。  我们甚至可以用它在java平台分配超大内存进行计算。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从多个角度考量 Unsafe">
+<meta property="og:url" content="http://example.com/2024/11/27/2024-11-27-start-with-unsafe/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="一开始对Unsafe的认知仅仅局限于CAS操作，随着认知增加 ，实际上：  juc包用它获得offset。  nio用Unsafe来判断平台大小端，分配内存。  我们甚至可以用它在java平台分配超大内存进行计算。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-11-26T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-06-10T07:41:01.502Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="并发">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>从多个角度考量 Unsafe - Hexo</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"example.com","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>Semghh&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="从多个角度考量 Unsafe"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-11-27 00:00" pubdate>
+          2024年11月27日 凌晨
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.6k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          14 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">从多个角度考量 Unsafe</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>一开始对Unsafe的认知仅仅局限于CAS操作，随着认知增加 ，实际上：</p>
+<ul>
+<li><p>juc包用它获得offset。</p>
+</li>
+<li><p>nio用Unsafe来判断平台大小端，分配内存。</p>
+</li>
+<li><p>我们甚至可以用它在java平台分配超大内存进行计算。</p>
+</li>
+</ul>
+<span id="more"></span>
+
+<h1 id="1-Unsafe"><a href="#1-Unsafe" class="headerlink" title="1. Unsafe"></a>1. Unsafe</h1><p>Unsafe是 sun提供的工具<code>sun.misc.Unsafe</code> 。通过它我们可以使用更底层的手段来操作Java内存模型，例如：</p>
+<ul>
+<li><p>保证原子性的交换操作： <code>compareAndSwapObject()</code> ，通常用它来原子的修改状态位，制造一个临界区。</p>
+<p>常见的<code>while(true)</code> 重试使用它。</p>
+</li>
+<li><p>通过加屏障，具有可见的set操作 ： <code>putObjectVolatile</code>  ，通常用它来保证set操作的可见性，和禁止重排。</p>
+</li>
+<li><p>只保证 禁重排，但不立即保证可见性的set操作  ： <code>putOrderedObject</code> 性能更好，在特殊场景下能够优化 putVolatile 。例如 Future中设置状态位（单向的，且状态位含义独立）。</p>
+</li>
+<li><p>分配内存 <code>allocateMemory()</code> , 回收内存<code> reallocateMemory()</code> :  nio用它来判断 平台的大小端。</p>
+</li>
+<li><p>获得数组 baseOffset <code>arrayBaseOffset()</code>  </p>
+<p>获得 数组元素的scale <code>arrayIndexScale()</code> </p>
+<p>访问数组元素公式： 索引为n的元素在数组中的偏移量 indexOffset &#x3D;  base + n* scale</p>
+<p>在j.u.c.a.AtomicIntegerArray 及类似原子数组中使用。</p>
+</li>
+</ul>
+<p>下面是相关代码的举例分析</p>
+<h1 id="2-代码举例"><a href="#2-代码举例" class="headerlink" title="2.  代码举例"></a>2.  代码举例</h1><h2 id="2-1-如何拿到Unsafe"><a href="#2-1-如何拿到Unsafe" class="headerlink" title="2.1 如何拿到Unsafe"></a>2.1 如何拿到Unsafe</h2><p>我们无法直接调用 <code>Unsafe.getUnsafe()</code> 来获得Unsafe ，因此需要使用反射的方式拿到它。</p>
+<p>我们从Netty中copy一个Permit工具类：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">Permit</span> &#123;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Unsafe <span class="hljs-title function_">getUnsafe</span><span class="hljs-params">()</span>&#123;<br>        <span class="hljs-keyword">return</span> (Unsafe) Permit.ReflectiveStaticField(Unsafe.class,<span class="hljs-string">&quot;theUnsafe&quot;</span>);<br>    &#125;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Object <span class="hljs-title function_">ReflectiveStaticField</span><span class="hljs-params">(Class&lt;?&gt; cls,String fieldName)</span>&#123;<br>        <span class="hljs-keyword">try</span> &#123;<br>            <span class="hljs-type">Field</span> <span class="hljs-variable">f</span> <span class="hljs-operator">=</span>  cls.getDeclaredField(fieldName);<br>            f.setAccessible(<span class="hljs-literal">true</span>);<br>            <span class="hljs-keyword">return</span> f.get(<span class="hljs-literal">null</span>);<br>        &#125; <span class="hljs-keyword">catch</span> (NoSuchFieldException | IllegalAccessException e) &#123;<br>            <span class="hljs-keyword">return</span> <span class="hljs-literal">null</span>;<br>        &#125;<br>    &#125;<br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Field <span class="hljs-title function_">GetField</span><span class="hljs-params">(Class&lt;?&gt; clz,String fieldName)</span> <span class="hljs-keyword">throws</span> NoSuchFieldException&#123;<br><br>        Class&lt;?&gt; c = clz;<br>        <span class="hljs-type">Field</span> <span class="hljs-variable">f</span> <span class="hljs-operator">=</span> <span class="hljs-literal">null</span>;<br>        <span class="hljs-keyword">while</span> (c != <span class="hljs-literal">null</span>)&#123;<br>            <span class="hljs-keyword">try</span> &#123;<br>                f = c.getDeclaredField(fieldName);<br>                <span class="hljs-keyword">break</span>;<br>            &#125; <span class="hljs-keyword">catch</span> (NoSuchFieldException e) &#123;<br>                c = c.getSuperclass();<br>            &#125;<br>        &#125;<br>        <span class="hljs-keyword">if</span> (f==<span class="hljs-literal">null</span>)&#123;<br>            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">NoSuchFieldException</span>(c.getName() + <span class="hljs-string">&quot;::&quot;</span> + fieldName);<br>        &#125;<br>        <span class="hljs-keyword">return</span> f;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 id="2-2-判断平台大小端"><a href="#2-2-判断平台大小端" class="headerlink" title="2.2 判断平台大小端"></a>2.2 判断平台大小端</h2><p>仿照Bits， 我们使用分配内存，再放入一个特殊的long类型，求出他的低地址，然后判断大小端：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> ByteOrder nativeByteOrder=<span class="hljs-literal">null</span>;<br><br><span class="hljs-keyword">static</span> &#123;<br>    <span class="hljs-type">Unsafe</span> <span class="hljs-variable">unsafe</span> <span class="hljs-operator">=</span> getUnsafe();<br>    <span class="hljs-type">long</span> <span class="hljs-variable">l</span> <span class="hljs-operator">=</span> unsafe.allocateMemory(<span class="hljs-number">8</span>); <span class="hljs-comment">//分配一个8byte</span><br>    <span class="hljs-keyword">try</span> &#123;			<span class="hljs-comment">//8个byte， 等于 16个16进制位。</span><br>        unsafe.putLong(l,<span class="hljs-number">0x0102030405060708</span>);  <br>        <span class="hljs-type">byte</span> <span class="hljs-variable">value</span> <span class="hljs-operator">=</span> unsafe.getByte(l);<br>        <span class="hljs-keyword">switch</span> (value)&#123;<br>            <span class="hljs-keyword">case</span> <span class="hljs-number">0x01</span>: &#123; <span class="hljs-comment">//如果低地址是01那么是大端</span><br>                nativeByteOrder = ByteOrder.BIG_ENDIAN;<br>                <span class="hljs-keyword">break</span>;<br>            &#125;<br>            <span class="hljs-keyword">case</span> <span class="hljs-number">0x08</span>:&#123; <span class="hljs-comment">//如果低地址是08那么是小端</span><br>                nativeByteOrder = ByteOrder.LITTLE_ENDIAN;<br>            &#125;<br>        &#125;<br>    &#125;<span class="hljs-keyword">finally</span> &#123;<br>        unsafe.freeMemory(l);<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+<h2 id="2-3-使用cas模拟临界区"><a href="#2-3-使用cas模拟临界区" class="headerlink" title="2.3 使用cas模拟临界区"></a>2.3 使用cas模拟临界区</h2><p>对于一个volatile变量，如果你只想检查它的状态做判断，那么无需使用原子性。</p>
+<p>但是如果想模拟一个临界区，那么必须使用原子的修改操作，来修改状态位。</p>
+<p>它通常是用一个 while死循环来模拟，这样的公式代码在juc中随处可见：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">//我们必须给state规定几个特殊值，表示对象处于不同的状态。 这一步非常重要。</span><br><span class="hljs-keyword">private</span> <span class="hljs-keyword">volatile</span> <span class="hljs-type">int</span> state=<span class="hljs-number">0</span>;<br><br><span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> Unsafe unsafe;<br><br><span class="hljs-comment">//我们还必须拿到 state在 class的offset;  通过 Unsafe.objectFieldOffset()方法拿到</span><br><span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-type">long</span> STATE_OFFSET;<br><br><br><span class="hljs-comment">//按照序号解读代码，更容易懂。</span><br><br><span class="hljs-keyword">public</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">foo</span><span class="hljs-params">()</span>&#123;<br>    <span class="hljs-type">int</span> i ;<br>    <span class="hljs-keyword">for</span>(;;)&#123;<br>        <span class="hljs-comment">//1.读一次state的值到操作数栈(本地),这个值可能不是最新的，但没关系。若不为最新CAS操作一定会失败，然后走for循环再次尝试</span><br>      	i=state;<br>        A:<br>        <span class="hljs-comment">//2.这里我们通过原子操作，保证了临界区内有且只有1个线程操作,让this对象的状态由0过渡到-1</span><br>        <span class="hljs-comment">//2.代码块中的 do something就是过渡过程中，执行的逻辑。</span><br>        <span class="hljs-keyword">if</span>(unsafe.compareAndSetInt(<span class="hljs-built_in">this</span>,STATE_OFFSET,<span class="hljs-number">0</span>,-<span class="hljs-number">1</span>))&#123;<br>            <span class="hljs-comment">//3. safe to do something start</span><br>            <br>            <span class="hljs-comment">//4. 这里是处理具体业务逻辑的地方。这里算作临界区内部，这里不用担心任何并发，可以随意执行”非原子操作“</span><br>            <br>            <span class="hljs-comment">//5.safe to do something ending</span><br>            <br>            state=<span class="hljs-number">1</span>; <span class="hljs-comment">//6.处理成功以后我们可以安全的，不用任何修饰的修改state的值</span><br>            		<span class="hljs-comment">//6.这里我修改为1,没有什么特别的含义。仅仅表示一种独特的状态。你可以（根据业务需要）将state修改为任意值。</span><br>            <br>            <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>; <span class="hljs-comment">//7. 处理成功以后，我们就要退出死循环了。这里可以是break（然后处理其他逻辑）。</span><br>            			<span class="hljs-comment">//7. 也可以直接return（根据需要）</span><br>        &#125;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+<p>值得注意的是： 上面<a target="_blank" rel="noopener" href="https://marketing.csdn.net/p/3127db09a98e0723b83b2914d9256174?pId=2782?utm_source=glcblog&spm=1001.2101.3001.7020">模板</a>代码”可能”存在死循环状态 。</p>
+<p>如果state变为1以后，如果【后续】没有任何其他线程将state其变为0，那么将会死循环。</p>
+<blockquote>
+<p>这个 “可能”想表达的含义是，这么写代码 , 没有语法错误，并且能正常执行，但它可能不符合业务需求。</p>
+</blockquote>
+<h2 id="2-4-顺序put优化volatile"><a href="#2-4-顺序put优化volatile" class="headerlink" title="2.4 顺序put优化volatile"></a>2.4 顺序put优化volatile</h2><p>在FutureTask中， state 过渡到终止状态以后，不会再发生改变。并且每一种状态都是独一无二的。</p>
+<p>因此，可以使用 <code>putOrderedInte</code>  来优化 <code>putIntVolatile()</code> : </p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">//FutureTask.java</span><br><br><span class="hljs-keyword">public</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">cancel</span><span class="hljs-params">(<span class="hljs-type">boolean</span> mayInterruptIfRunning)</span> &#123;<br>    <span class="hljs-keyword">if</span> (!(state == NEW &amp;&amp;<br>          UNSAFE.compareAndSwapInt(<span class="hljs-built_in">this</span>, stateOffset, NEW,<br>              mayInterruptIfRunning ? INTERRUPTING : CANCELLED)))<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;<br>    <span class="hljs-keyword">try</span> &#123;    <span class="hljs-comment">// in case call to interrupt throws exception</span><br>        <span class="hljs-keyword">if</span> (mayInterruptIfRunning) &#123;<br>            <span class="hljs-keyword">try</span> &#123;<br>                <span class="hljs-type">Thread</span> <span class="hljs-variable">t</span> <span class="hljs-operator">=</span> runner;<br>                <span class="hljs-keyword">if</span> (t != <span class="hljs-literal">null</span>)<br>                    t.interrupt();<br>            &#125; <span class="hljs-keyword">finally</span> &#123; <span class="hljs-comment">// final state</span><br>                <span class="hljs-comment">//有且只能有一个线程能够竞争到   INTERRUPTING 或 CANCELLED</span><br>                <span class="hljs-comment">//因此晚一点儿让其他线程看到  从INTERRUPTING  --&gt;  INTERRUPTED 是没问题的。</span><br>                <span class="hljs-comment">//因为其他人没有竞争到INTERRUPTING 也就不会进行其他修改状态的操作</span><br>                UNSAFE.putOrderedInt(<span class="hljs-built_in">this</span>, stateOffset, INTERRUPTED);<br>            &#125;<br>        &#125;<br>    &#125; <span class="hljs-keyword">finally</span> &#123;<br>        finishCompletion();<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h1 id="3-java中的大内存"><a href="#3-java中的大内存" class="headerlink" title="3. java中的大内存"></a>3. java中的大内存</h1><p>在java中申请数组，数组最大长度必须小于等于 <code>Integer.MAX_VALUE</code></p>
+<p>在考虑到内存充裕的情况下，常规手段java能申请到多大的内存空间处理数据？</p>
+<ul>
+<li>对于  long[] 来说， 最多能够申请到 <code>long[Integer.MAX_VALUE]</code>  约等于16G的数据  8B * (2^31-1) &#x2F;1024 &#x2F;1024&#x2F;1024  &#x3D; 15.99GB</li>
+<li>对于  int[] 来说， 最多能够申请到 <code>iny[Integer.MAX_VALUE]</code>  约等于8G的数据  4B * (2^31-1) &#x2F;1024 &#x2F;1024&#x2F;1024  &#x3D; 7.99GB</li>
+<li>对于 byte[] 来说，最多能够申请到  <code>byte[]</code> 与等于1.9GB      1B * (2^31-1) &#x2F;1024 &#x2F;1024&#x2F;1024  &#x3D; 1.99GB</li>
+</ul>
+<p>也就是说，我们可以通过  “使用<code>long[]</code>申请到超大的内存，然后把它看作byte来处理的方式” 来变相扩大byte数组的分配空间。</p>
+<p>在java中想要这样做，需要借助Unsafe 访问数组 : </p>
+<h1 id="4-一些其他的思考"><a href="#4-一些其他的思考" class="headerlink" title="4. 一些其他的思考"></a>4. 一些其他的思考</h1><h2 id="4-1-什么场景下使用原子数组"><a href="#4-1-什么场景下使用原子数组" class="headerlink" title="4.1 什么场景下使用原子数组"></a>4.1 什么场景下使用原子数组</h2><p>AtomicIntegerArray保证了get操作的可见性，意味着对数组元素变化是敏感的。</p>
+<p>如果某些业务， 严格依赖数组元素当前状态下的值，可能会用到。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">//AtomicIntegerArray.java</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-type">int</span> <span class="hljs-title function_">get</span><span class="hljs-params">(<span class="hljs-type">int</span> i)</span> &#123;<br>    <span class="hljs-keyword">return</span> getRaw(checkedByteOffset(i));<br>&#125;<br><br><span class="hljs-keyword">private</span> <span class="hljs-type">int</span> <span class="hljs-title function_">getRaw</span><span class="hljs-params">(<span class="hljs-type">long</span> offset)</span> &#123;<br>    <span class="hljs-keyword">return</span> unsafe.getIntVolatile(array, offset);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+<h1 id="5-参考"><a href="#5-参考" class="headerlink" title="5. 参考"></a>5. 参考</h1><p><a target="_blank" rel="noopener" href="https://segmentfault.com/a/1190000000441670">https://segmentfault.com/a/1190000000441670</a></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/java/" class="category-chain-item">java</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/%E5%B9%B6%E5%8F%91/" class="print-no-link">#并发</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>从多个角度考量 Unsafe</div>
+      <div>http://example.com/2024/11/27/2024-11-27-start-with-unsafe/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>John Doe</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2024年11月27日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/12/24/netty-pipeline/" title="Netty中组件及源码">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">Netty中组件及源码</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/11/25/2024-11-25-mybatis-param-name-resolver/" title="Mybatis 参数名称解析器">
+                        <span class="hidden-mobile">Mybatis 参数名称解析器</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
