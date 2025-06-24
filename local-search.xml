@@ -58,11 +58,11 @@
   
   
   <entry>
-    <title>定时器的实现</title>
-    <link href="/2024/12/24/2025-01-26-timer/"/>
-    <url>/2024/12/24/2025-01-26-timer/</url>
+    <title>MQTT中 broker如何实现QoS</title>
+    <link href="/2024/12/24/2025-02-12-mqtt-qos/"/>
+    <url>/2024/12/24/2025-02-12-mqtt-qos/</url>
     
-    <content type="html"><![CDATA[<p>JDK中集成了简单的定时任务池(ScheduledThreadPool)提供了最简单的任务调度。</p><p>Netty中则给出了另一种任务池的实现(Timer)。</p><span id="more"></span><h1 id="1-Timer"><a href="#1-Timer" class="headerlink" title="1. Timer"></a>1. Timer</h1><p>定时器。也是调度池的核心（为每一个任务设置一个定时器，当定时过期以后就触发任务执行。）</p><p>在jdk中 DougLea使用了以 “最小堆”为数据结构定时器来实现了  ScheduledThreadPoolExecutor 。</p><p>而Netty中，使用了 George Varghese and Tony Lauck 论文提供的Hash结构的定时器。</p><p>这两种各有什么优劣？</p><h2 id="1-1-定时器实现方式"><a href="#1-1-定时器实现方式" class="headerlink" title="1.1 定时器实现方式"></a>1.1 定时器实现方式</h2><p>首先定时器需要模拟一个时间流逝的过程(本质是模拟task过期，然后执行)。</p><p>一般来说有2种方式模拟：</p><ul><li><p>直接法 ：    拟定一个时间尺度interval （比如50 ms） 把它当作时钟tick的最小单位。每经过一个tick ，时钟就向后滚动interval，然后减少所有Timer的生命周期，若Timer过期，则执行task。</p></li><li><p>顺序队列： 所有的Timer都需要按照过期时间由近到远排列为一个list。list的头节点是最近过期的Timer。</p><p><img src="/image/2025-01-26-timer.assets/image-20250127114450101.png" alt="image-20250127114450101"></p></li></ul><p>两种方案的对比：</p><p><img src="/image/2025-01-26-timer.assets/image-20250127114556050.png" alt="image-20250127114556050"></p><h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><p><a href="https://www.lenshood.dev/2021/01/27/java-varhandle/#opaque">https://www.lenshood.dev/2021/01/27/java-varhandle/#opaque</a></p><p><a href="https://gee.cs.oswego.edu/dl/html/j9mm.html#summarysec">https://gee.cs.oswego.edu/dl/html/j9mm.html#summarysec</a></p>]]></content>
+    <content type="html"><![CDATA[<p>我们都知道MQTT中消息的QoS级别，它和我们业务需求的可靠性息息相关。</p><p>那么对于Qos消息，broker做了什么来保证”精确一次”&#x2F;“至少一次”&#x2F;“至多1次”语义的呢？</p><span id="more"></span><h1 id="1-MQTT"><a href="#1-MQTT" class="headerlink" title="1.  MQTT"></a>1.  MQTT</h1><p>MQTT 是物联网最常见的协议之一。它运行在TCP之上，因此可以认为是应用层协议。</p><p>MQTT不关心 TCP层做的事情，它只定义了 消息是怎样在通信双方传递的。</p><p>物联网&#x2F;弱网情况下，选择MQTT协议， 它的优势有：</p><ul><li>协议头足够小，开销低</li><li>提供了3种Qos级别，可以在弱网条件下，适应多种业务需求</li><li>使用broker解耦通信双方，足够简单。</li><li>可以扩展到上千万的设备</li><li>安全，支持TLS</li></ul><p>本文主要关心Qos和broker在Qos中都做了什么。</p><p>你需要理解的术语有：</p><ul><li>broker :  MQTT的服务器，完成消息的接收、路由工作。</li><li>client :  客户端。既是消息发送者，又可以是 消费者。  broker 和 client  是一组对立概念。</li></ul><blockquote><p>这张图能够帮你更好的理解 client 和 broker 。</p><p>broker 就是一组MQTT Server的实现。 message  producer 把消息推给broker 与 message consumer解耦</p><p><img src="/image/2025-02-12-mqtt-qos.assets/image-20250213102222600.png" alt="image-20250213102222600"></p></blockquote><ul><li>sender :  一次通信的消息发起者。</li><li>receiver : 一次通信的消息接收者。</li></ul><h1 id="2-Broker-如何达成QoS"><a href="#2-Broker-如何达成QoS" class="headerlink" title="2. Broker 如何达成QoS"></a>2. Broker 如何达成QoS</h1><p> Qos 有3个级别  <code>0,1,2</code> 他们的开销，依次提升但能提供更多的业务保证 ： </p><h2 id="Qos-0"><a href="#Qos-0" class="headerlink" title="Qos 0"></a>Qos 0</h2><p>Qos 0 ：至多一次。 </p><p>sender 发送 PUBLISH packet 并声明QoS为0。 broker接收到消息以后不做出任何回复。若此消息丢失，sender不知道并且sender 不会做任何重发。</p><p>因此，消息最多到达1次broker。</p><p>图示：</p><p><img src="/image/2025-02-12-mqtt-qos.assets/image-20250213102222600.png" alt="image-20250213102222600"></p><h2 id="Qos-1"><a href="#Qos-1" class="headerlink" title="Qos 1"></a>Qos 1</h2><p>Qos 1： 至少1次。</p><p><img src="/image/2025-02-12-mqtt-qos.assets/image-20250213102639040.png" alt="image-20250213102639040"></p><p>sender首先发送 PUBLISH QoS1 的数据包。 broker接收到packet以后，知道此次通信是QoS1，然后向 sender回复 PUBACK packet。</p><blockquote><p>注意，此时broker不会缓存任何 packet数据包。不会做重复校验处理</p></blockquote><p>若sender未在规定时间内收到 receiver的 PUBACK 数据包，那么它会尝试重新发送原始数据包，直到收到 PUBACK 为止。</p><p>broker在这个过程中不会缓存任何packet，因此收到一份数据包(可能是重传的)都会响应 PUBACK  。</p><p>所以 QoS 1 是消息至少1次(可能多次到达，消息可能重复)。</p><h2 id="Qos-2"><a href="#Qos-2" class="headerlink" title="Qos 2"></a>Qos 2</h2><p>Qos 2： 精确1次。</p><p><img src="/image/2025-02-12-mqtt-qos.assets/image-20250213103024860.png" alt="image-20250213103024860"></p><p>Sender 向 Broker发送 QoS为2的 PUBLISH ，broker收到以后， broker会缓存packetID，并响应 PUBREC。</p><p>若sender  未收到PUBREC,则重传原始数据包。 broker收到重复 packetID的数据包丢弃，并响应PUBREC。</p><p>若sender正常收到PUBREC，则向broker发送 PUBREL ， 只要 broker收到 PUBREL以后，就会释放所有保存的状态，并返回 PUBCOMP packet 。</p><blockquote><p>在 broker收到 PUBREL 且 完全处理消息之前， broker都必须保存原始的packet。</p></blockquote><p>若sender  收到 PUBCOMP packet 以后，则释放所有保存的状态， packetID 回收等待重新利用。</p><p>sender未收到 PUBCOMP ，则会重传 PUBREL。</p><p>broker必须保证响应每一次的  PUBREL，都回复 PUBCOMP</p><p>至此，QoS2结束。 QoS2保证了 Sender已经将原始packet传递到broker ，并且Sender已知 broker确实收到消息。</p><h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><p><a href="https://www.hivemq.com/static/ebooks/hivemq-ebook-mqtt-essentials.pdf">https://www.hivemq.com/static/ebooks/hivemq-ebook-mqtt-essentials.pdf</a></p>]]></content>
     
     
     <categories>
@@ -74,9 +74,7 @@
     
     <tags>
       
-      <tag>数据结构</tag>
-      
-      <tag>netty</tag>
+      <tag>mqtt</tag>
       
     </tags>
     
@@ -110,11 +108,11 @@
   
   
   <entry>
-    <title>MQTT中 broker如何实现QoS</title>
-    <link href="/2024/12/24/2025-02-12-mqtt-qos/"/>
-    <url>/2024/12/24/2025-02-12-mqtt-qos/</url>
+    <title>定时器的实现</title>
+    <link href="/2024/12/24/2025-01-26-timer/"/>
+    <url>/2024/12/24/2025-01-26-timer/</url>
     
-    <content type="html"><![CDATA[<p>我们都知道MQTT中消息的QoS级别，它和我们业务需求的可靠性息息相关。</p><p>那么对于Qos消息，broker做了什么来保证”精确一次”&#x2F;“至少一次”&#x2F;“至多1次”语义的呢？</p><span id="more"></span><h1 id="1-MQTT"><a href="#1-MQTT" class="headerlink" title="1.  MQTT"></a>1.  MQTT</h1><p>MQTT 是物联网最常见的协议之一。它运行在TCP之上，因此可以认为是应用层协议。</p><p>MQTT不关心 TCP层做的事情，它只定义了 消息是怎样在通信双方传递的。</p><p>物联网&#x2F;弱网情况下，选择MQTT协议， 它的优势有：</p><ul><li>协议头足够小，开销低</li><li>提供了3种Qos级别，可以在弱网条件下，适应多种业务需求</li><li>使用broker解耦通信双方，足够简单。</li><li>可以扩展到上千万的设备</li><li>安全，支持TLS</li></ul><p>本文主要关心Qos和broker在Qos中都做了什么。</p><p>你需要理解的术语有：</p><ul><li>broker :  MQTT的服务器，完成消息的接收、路由工作。</li><li>client :  客户端。既是消息发送者，又可以是 消费者。  broker 和 client  是一组对立概念。</li></ul><blockquote><p>这张图能够帮你更好的理解 client 和 broker 。</p><p>broker 就是一组MQTT Server的实现。 message  producer 把消息推给broker 与 message consumer解耦</p><p><img src="/image/2025-02-12-mqtt-qos.assets/image-20250213102222600.png" alt="image-20250213102222600"></p></blockquote><ul><li>sender :  一次通信的消息发起者。</li><li>receiver : 一次通信的消息接收者。</li></ul><h1 id="2-Broker-如何达成QoS"><a href="#2-Broker-如何达成QoS" class="headerlink" title="2. Broker 如何达成QoS"></a>2. Broker 如何达成QoS</h1><p> Qos 有3个级别  <code>0,1,2</code> 他们的开销，依次提升但能提供更多的业务保证 ： </p><h2 id="Qos-0"><a href="#Qos-0" class="headerlink" title="Qos 0"></a>Qos 0</h2><p>Qos 0 ：至多一次。 </p><p>sender 发送 PUBLISH packet 并声明QoS为0。 broker接收到消息以后不做出任何回复。若此消息丢失，sender不知道并且sender 不会做任何重发。</p><p>因此，消息最多到达1次broker。</p><p>图示：</p><p><img src="/image/2025-02-12-mqtt-qos.assets/image-20250213102222600.png" alt="image-20250213102222600"></p><h2 id="Qos-1"><a href="#Qos-1" class="headerlink" title="Qos 1"></a>Qos 1</h2><p>Qos 1： 至少1次。</p><p><img src="/image/2025-02-12-mqtt-qos.assets/image-20250213102639040.png" alt="image-20250213102639040"></p><p>sender首先发送 PUBLISH QoS1 的数据包。 broker接收到packet以后，知道此次通信是QoS1，然后向 sender回复 PUBACK packet。</p><blockquote><p>注意，此时broker不会缓存任何 packet数据包。不会做重复校验处理</p></blockquote><p>若sender未在规定时间内收到 receiver的 PUBACK 数据包，那么它会尝试重新发送原始数据包，直到收到 PUBACK 为止。</p><p>broker在这个过程中不会缓存任何packet，因此收到一份数据包(可能是重传的)都会响应 PUBACK  。</p><p>所以 QoS 1 是消息至少1次(可能多次到达，消息可能重复)。</p><h2 id="Qos-2"><a href="#Qos-2" class="headerlink" title="Qos 2"></a>Qos 2</h2><p>Qos 2： 精确1次。</p><p><img src="/image/2025-02-12-mqtt-qos.assets/image-20250213103024860.png" alt="image-20250213103024860"></p><p>Sender 向 Broker发送 QoS为2的 PUBLISH ，broker收到以后， broker会缓存packetID，并响应 PUBREC。</p><p>若sender  未收到PUBREC,则重传原始数据包。 broker收到重复 packetID的数据包丢弃，并响应PUBREC。</p><p>若sender正常收到PUBREC，则向broker发送 PUBREL ， 只要 broker收到 PUBREL以后，就会释放所有保存的状态，并返回 PUBCOMP packet 。</p><blockquote><p>在 broker收到 PUBREL 且 完全处理消息之前， broker都必须保存原始的packet。</p></blockquote><p>若sender  收到 PUBCOMP packet 以后，则释放所有保存的状态， packetID 回收等待重新利用。</p><p>sender未收到 PUBCOMP ，则会重传 PUBREL。</p><p>broker必须保证响应每一次的  PUBREL，都回复 PUBCOMP</p><p>至此，QoS2结束。 QoS2保证了 Sender已经将原始packet传递到broker ，并且Sender已知 broker确实收到消息。</p><h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><p><a href="https://www.hivemq.com/static/ebooks/hivemq-ebook-mqtt-essentials.pdf">https://www.hivemq.com/static/ebooks/hivemq-ebook-mqtt-essentials.pdf</a></p>]]></content>
+    <content type="html"><![CDATA[<p>JDK中集成了简单的定时任务池(ScheduledThreadPool)提供了最简单的任务调度。</p><p>Netty中则给出了另一种任务池的实现(Timer)。</p><span id="more"></span><h1 id="1-Timer"><a href="#1-Timer" class="headerlink" title="1. Timer"></a>1. Timer</h1><p>定时器。也是调度池的核心（为每一个任务设置一个定时器，当定时过期以后就触发任务执行。）</p><p>在jdk中 DougLea使用了以 “最小堆”为数据结构定时器来实现了  ScheduledThreadPoolExecutor 。</p><p>而Netty中，使用了 George Varghese and Tony Lauck 论文提供的Hash结构的定时器。</p><p>这两种各有什么优劣？</p><h2 id="1-1-定时器实现方式"><a href="#1-1-定时器实现方式" class="headerlink" title="1.1 定时器实现方式"></a>1.1 定时器实现方式</h2><p>首先定时器需要模拟一个时间流逝的过程(本质是模拟task过期，然后执行)。</p><p>一般来说有2种方式模拟：</p><ul><li><p>直接法 ：    拟定一个时间尺度interval （比如50 ms） 把它当作时钟tick的最小单位。每经过一个tick ，时钟就向后滚动interval，然后减少所有Timer的生命周期，若Timer过期，则执行task。</p></li><li><p>顺序队列： 所有的Timer都需要按照过期时间由近到远排列为一个list。list的头节点是最近过期的Timer。</p><p><img src="/image/2025-01-26-timer.assets/image-20250127114450101.png" alt="image-20250127114450101"></p></li></ul><p>两种方案的对比：</p><p><img src="/image/2025-01-26-timer.assets/image-20250127114556050.png" alt="image-20250127114556050"></p><h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><p><a href="https://www.lenshood.dev/2021/01/27/java-varhandle/#opaque">https://www.lenshood.dev/2021/01/27/java-varhandle/#opaque</a></p><p><a href="https://gee.cs.oswego.edu/dl/html/j9mm.html#summarysec">https://gee.cs.oswego.edu/dl/html/j9mm.html#summarysec</a></p>]]></content>
     
     
     <categories>
@@ -126,7 +124,9 @@
     
     <tags>
       
-      <tag>mqtt</tag>
+      <tag>数据结构</tag>
+      
+      <tag>netty</tag>
       
     </tags>
     
