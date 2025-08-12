@@ -1,0 +1,737 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="John Doe">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="紧接着上篇排查性能内鬼， 我们发现mp的数据权限拦截器默认拦截全部接口，使用InterceptorIgnore注解关闭指定接口。 我们对它的默认表现不满意，期望默认全部接口关闭，指定接口开启。 这篇笔记目标：优雅、简单的修改三方jar的依赖，更改其默认表现。  一个可行的方法是 ： 将源码down下来自行修改、编译、打包。  我这里只是一个小改动，mp项目使用的是gradle管理，不幸的是我对它并">
+<meta property="og:type" content="article">
+<meta property="og:title" content="修改三方jar依赖">
+<meta property="og:url" content="http://example.com/2025/08/10/2025-08-10-modify-3party-jar/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="紧接着上篇排查性能内鬼， 我们发现mp的数据权限拦截器默认拦截全部接口，使用InterceptorIgnore注解关闭指定接口。 我们对它的默认表现不满意，期望默认全部接口关闭，指定接口开启。 这篇笔记目标：优雅、简单的修改三方jar的依赖，更改其默认表现。  一个可行的方法是 ： 将源码down下来自行修改、编译、打包。  我这里只是一个小改动，mp项目使用的是gradle管理，不幸的是我对它并">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/image/2025-08-10-modify-3party-jar.assets/image-20250812111059917.png">
+<meta property="og:image" content="http://example.com/image/2025-08-10-modify-3party-jar.assets/image-20250812111502725.png">
+<meta property="og:image" content="http://example.com/image/2025-08-10-modify-3party-jar.assets/image-20250812111832532.png">
+<meta property="og:image" content="http://example.com/image/2025-08-10-modify-3party-jar.assets/image-20250812113607294.png">
+<meta property="og:image" content="http://example.com/image/2025-08-10-modify-3party-jar.assets/image-20250812113713077.png">
+<meta property="og:image" content="http://example.com/image/2025-08-10-modify-3party-jar.assets/image-20250812113429399.png">
+<meta property="article:published_time" content="2025-08-10T02:30:00.000Z">
+<meta property="article:modified_time" content="2025-08-12T03:41:43.970Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="mybatis">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="http://example.com/image/2025-08-10-modify-3party-jar.assets/image-20250812111059917.png">
+  
+  
+  
+  <title>修改三方jar依赖 - Hexo</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"example.com","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>Semghh&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="修改三方jar依赖"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-08-10 10:30" pubdate>
+          2025年8月10日 上午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.5k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          13 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">修改三方jar依赖</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>紧接着上篇排查性能内鬼， 我们发现mp的数据权限拦截器默认拦截全部接口，使用<code>InterceptorIgnore</code>注解关闭指定接口。</p>
+<p>我们对它的默认表现不满意，期望默认全部接口关闭，指定接口开启。</p>
+<p>这篇笔记目标：优雅、简单的修改三方jar的依赖，更改其默认表现。</p>
+<blockquote>
+<p>一个可行的方法是 ： 将源码down下来自行修改、编译、打包。</p>
+</blockquote>
+<p>我这里只是一个小改动，mp项目使用的是gradle管理，不幸的是我对它并不熟悉。</p>
+<p>因此换了一种方式实现。</p>
+<span id="more"></span>
+
+
+
+
+
+
+
+<h1 id="1-源码"><a href="#1-源码" class="headerlink" title="1. 源码"></a>1. 源码</h1><p>在DataPermissionInterceptor 中可以看到 ，判定是否需要数据权限解析借助工具类<code>InterceptorIgnoreHelper</code></p>
+<p><img src="/image/2025-08-10-modify-3party-jar.assets/image-20250812111059917.png" srcset="/img/loading.gif" lazyload alt="image-20250812111059917"></p>
+<p>一路跟进，当接口方法没有任何声明的时候，该方法返回false。也就是 “不忽略”。 因此默认全部接口开启数据权限分析，基于项目不同会极大拖累接口响应，甚至部分数据库的特殊语法可能导致解析失败报错。</p>
+<p><img src="/image/2025-08-10-modify-3party-jar.assets/image-20250812111502725.png" srcset="/img/loading.gif" lazyload alt="image-20250812111502725"></p>
+<p>到这里思路已经很明确，我们只需要将false改为true即可。</p>
+<h1 id="2-怎么做？"><a href="#2-怎么做？" class="headerlink" title="2. 怎么做？"></a>2. 怎么做？</h1><h2 id="配置maven-dependency-plugin-插件"><a href="#配置maven-dependency-plugin-插件" class="headerlink" title="配置maven-dependency-plugin 插件"></a>配置maven-dependency-plugin 插件</h2><p>通过 <code>maven-dependency-plugin</code> 插件的 unpack 目标，我们可以将指定依赖的.class文件从jar包中解压到 <code>target/classes</code>中，便于我们后续打包使用。</p>
+<p>配置如下图所示：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">build</span>&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">plugins</span>&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">plugin</span>&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>org.apache.maven.plugins<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>maven-dependency-plugin<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">executions</span>&gt;</span><br>                    <span class="hljs-tag">&lt;<span class="hljs-name">execution</span>&gt;</span><br>                        <span class="hljs-tag">&lt;<span class="hljs-name">id</span>&gt;</span>unpack<span class="hljs-tag">&lt;/<span class="hljs-name">id</span>&gt;</span><br>                        <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>generate-sources<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>                        <span class="hljs-tag">&lt;<span class="hljs-name">goals</span>&gt;</span><br>                            <span class="hljs-tag">&lt;<span class="hljs-name">goal</span>&gt;</span>unpack<span class="hljs-tag">&lt;/<span class="hljs-name">goal</span>&gt;</span><br>                        <span class="hljs-tag">&lt;/<span class="hljs-name">goals</span>&gt;</span><br>                        <span class="hljs-tag">&lt;<span class="hljs-name">configuration</span>&gt;</span><br>                            <span class="hljs-tag">&lt;<span class="hljs-name">artifactItems</span>&gt;</span><br>                                <span class="hljs-tag">&lt;<span class="hljs-name">artifactItem</span>&gt;</span><br>                                    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.baomidou<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>                                    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>mybatis-plus-core<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>                                    <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>3.5.9<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br>                                    <span class="hljs-tag">&lt;<span class="hljs-name">overWrite</span>&gt;</span>false<span class="hljs-tag">&lt;/<span class="hljs-name">overWrite</span>&gt;</span><br>                                    <span class="hljs-tag">&lt;<span class="hljs-name">outputDirectory</span>&gt;</span>$&#123;project.build.directory&#125;/classes<span class="hljs-tag">&lt;/<span class="hljs-name">outputDirectory</span>&gt;</span><br>                                <span class="hljs-tag">&lt;/<span class="hljs-name">artifactItem</span>&gt;</span><br><br>                            <span class="hljs-tag">&lt;/<span class="hljs-name">artifactItems</span>&gt;</span><br>                        <span class="hljs-tag">&lt;/<span class="hljs-name">configuration</span>&gt;</span><br><br>                    <span class="hljs-tag">&lt;/<span class="hljs-name">execution</span>&gt;</span><br>                <span class="hljs-tag">&lt;/<span class="hljs-name">executions</span>&gt;</span><br>            <span class="hljs-tag">&lt;/<span class="hljs-name">plugin</span>&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">plugins</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">build</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+
+
+
+
+<p>关键点在于 unpack 目标绑定的阶段。</p>
+<p>maven有3种生命周期 ，其中default生命周期中，有多个阶段，依次是：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">phases</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>validate<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>initialize<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>generate-sources<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>process-sources<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>generate-resources<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>process-resources<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>compile<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>process-classes<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>generate-test-sources<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>process-test-sources<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>generate-test-resources<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>process-test-resources<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>test-compile<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>process-test-classes<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>prepare-package<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>package<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>pre-integration-test<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>integration-test<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>post-integration-test<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>verify<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>install<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>deploy<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">phases</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+
+
+<p>我们将unpack 绑定在 compile 之前任意的阶段都可以。</p>
+<p>因为 unpack解压的文件会覆盖我们更改后compile的代码，因此unpack不能绑定在compile之后。</p>
+<p>在configuration中配置好要解压的依赖，和指定目录：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">configuration</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">artifactItems</span>&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">artifactItem</span>&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.baomidou<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>mybatis-plus-core<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>3.5.9<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br>            <span class="hljs-comment">&lt;!-- 我这边测试 overwrite 为ture还是false都不影响覆盖规则。无论为什么值，都会覆盖.class。 唯一能控制的只有绑定的阶段。 后面的阶段覆盖前面阶段的产物。 不清楚为什么，doc中也没仔细解释overwrite到底是谁覆盖谁 --&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">overWrite</span>&gt;</span>false<span class="hljs-tag">&lt;/<span class="hljs-name">overWrite</span>&gt;</span><br>            <span class="hljs-comment">&lt;!-- 输出文件夹为 target/classes --&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">outputDirectory</span>&gt;</span>$&#123;project.build.directory&#125;/classes<span class="hljs-tag">&lt;/<span class="hljs-name">outputDirectory</span>&gt;</span><br>        <span class="hljs-tag">&lt;/<span class="hljs-name">artifactItem</span>&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">artifactItems</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">configuration</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+<h2 id="修改源码"><a href="#修改源码" class="headerlink" title="修改源码"></a>修改源码</h2><p>随后创建相同的包名，将原class文件拷贝过来，修改源码：</p>
+<p><img src="/image/2025-08-10-modify-3party-jar.assets/image-20250812111832532.png" srcset="/img/loading.gif" lazyload alt="image-20250812111832532"></p>
+<h2 id="打包配置"><a href="#打包配置" class="headerlink" title="打包配置"></a>打包配置</h2><p>一般情况下直接打包，拷贝到原工程测试即可。</p>
+<p>按照各位自己的需要，修改依赖的坐标。</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>org.test<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br><span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>test-mybatis-plus-core<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br><span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>3.5.9<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+
+
+<p>排除原工程依赖 ,引入新依赖：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>xxxxx<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>xxxx-module-infra-biz<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>2.4.1-SNAPSHOT<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">exclusions</span>&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">exclusion</span>&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.baomidou<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>mybatis-plus-core<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>        <span class="hljs-tag">&lt;/<span class="hljs-name">exclusion</span>&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">exclusions</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br><br><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>org.test<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>test-mybatis-plus-core<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>3.5.9<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+<p>对于 <code>mybatis-plus-core</code>这个依赖来说，将一部分有用的信息打包在了 MANIFEST中 ，经过原项目工程测试后如果没有打包则会报错。</p>
+<p>因此我们需要配置额外的信息：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">plugin</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>org.apache.maven.plugins<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>maven-jar-plugin<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">configuration</span>&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">archive</span>&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">addMavenDescriptor</span>&gt;</span>true<span class="hljs-tag">&lt;/<span class="hljs-name">addMavenDescriptor</span>&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">manifestEntries</span>&gt;</span><br>                <span class="hljs-comment">&lt;!-- 根据原本mybatis-plus-core.jar中manifest的信息，添加如下配置 --&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">Implementation-Title</span>&gt;</span>mybatis-plus-core<span class="hljs-tag">&lt;/<span class="hljs-name">Implementation-Title</span>&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">Implementation-Version</span>&gt;</span>3.5.9<span class="hljs-tag">&lt;/<span class="hljs-name">Implementation-Version</span>&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">Built-Gradle</span>&gt;</span>8.7<span class="hljs-tag">&lt;/<span class="hljs-name">Built-Gradle</span>&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">Bundle-DocURL</span>&gt;</span>https://baomidou.com/<span class="hljs-tag">&lt;/<span class="hljs-name">Bundle-DocURL</span>&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">Build-OS</span>&gt;</span>Windows 10<span class="hljs-tag">&lt;/<span class="hljs-name">Build-OS</span>&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">Built-By</span>&gt;</span>Administrator<span class="hljs-tag">&lt;/<span class="hljs-name">Built-By</span>&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">Build-Jdk</span>&gt;</span>21.0.3<span class="hljs-tag">&lt;/<span class="hljs-name">Build-Jdk</span>&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">Build-Timestamp</span>&gt;</span>2024-10-23 22:49:54<span class="hljs-tag">&lt;/<span class="hljs-name">Build-Timestamp</span>&gt;</span><br>                <span class="hljs-tag">&lt;<span class="hljs-name">Automatic-Module-Name</span>&gt;</span>com.baomidou.mybatis.plus.core<span class="hljs-tag">&lt;/<span class="hljs-name">Automatic-Module-Name</span>&gt;</span><br>            <span class="hljs-tag">&lt;/<span class="hljs-name">manifestEntries</span>&gt;</span><br>        <span class="hljs-tag">&lt;/<span class="hljs-name">archive</span>&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">configuration</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>3.4.2<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">plugin</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+<h2 id="编译构建"><a href="#编译构建" class="headerlink" title="编译构建"></a>编译构建</h2><p>编码完成、打包配置完成以后， 直接使用 <code>mvn clean package</code>  即可完成绑定的unpack目标，以及compile覆盖。</p>
+<p>在target中可以查看自己的构建产物。</p>
+<p><img src="/image/2025-08-10-modify-3party-jar.assets/image-20250812113607294.png" srcset="/img/loading.gif" lazyload alt="image-20250812113607294"></p>
+<p>打开构建产物，找到对应class, 用IDEA反编译一下即可看到效果</p>
+<p><img src="/image/2025-08-10-modify-3party-jar.assets/image-20250812113713077.png" srcset="/img/loading.gif" lazyload alt="image-20250812113713077"></p>
+<p>mp工程是由jdk21编译的，我们这里显示java17 并且返回true ，即可证明产物正确。</p>
+<h2 id="验证"><a href="#验证" class="headerlink" title="验证"></a>验证</h2><p>在原项目依赖中查找相关类：</p>
+<p><img src="/image/2025-08-10-modify-3party-jar.assets/image-20250812113429399.png" srcset="/img/loading.gif" lazyload alt="image-20250812113429399"></p>
+<p>发现有且只有我们自己构建的依赖，即为正确。</p>
+<p>并测试相关接口，行为表现符合预期，即可。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/JAVA/" class="category-chain-item">JAVA</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/mybatis/" class="print-no-link">#mybatis</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>修改三方jar依赖</div>
+      <div>http://example.com/2025/08/10/2025-08-10-modify-3party-jar/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>John Doe</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年8月10日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2025/07/09/2025-07-08-mybatis-mapper-proxy/" title="mybatis">
+                        <span class="hidden-mobile">mybatis</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

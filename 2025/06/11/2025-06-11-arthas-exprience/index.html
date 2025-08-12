@@ -1,0 +1,708 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="John Doe">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="最近正在给公司一个非常老的单体项目升级到微服务。 在测试过程中、发现迁移过来的接口慢的不正常。使用火焰图找到了这个性能内鬼。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一次使用火焰图排查性能问题的经验">
+<meta property="og:url" content="http://example.com/2025/06/11/2025-06-11-arthas-exprience/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="最近正在给公司一个非常老的单体项目升级到微服务。 在测试过程中、发现迁移过来的接口慢的不正常。使用火焰图找到了这个性能内鬼。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/image/2025-06-11-arthas-exprience.assets/image-20250612163431808.png">
+<meta property="og:image" content="http://example.com/image/2025-06-11-arthas-exprience.assets/image-20250612170511635.png">
+<meta property="og:image" content="http://example.com/image/2025-06-11-arthas-exprience.assets/image-20250612171132115.png">
+<meta property="og:image" content="http://example.com/image/2025-06-11-arthas-exprience.assets/image-20250612171957912.png">
+<meta property="og:image" content="http://example.com/image/2025-06-11-arthas-exprience.assets/image-20250612172049406.png">
+<meta property="article:published_time" content="2025-06-11T12:30:00.000Z">
+<meta property="article:modified_time" content="2025-08-12T03:42:24.445Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="优化">
+<meta property="article:tag" content="JFR">
+<meta property="article:tag" content="Arthas">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="http://example.com/image/2025-06-11-arthas-exprience.assets/image-20250612163431808.png">
+  
+  
+  
+  <title>一次使用火焰图排查性能问题的经验 - Hexo</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"example.com","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>Semghh&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="一次使用火焰图排查性能问题的经验"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-06-11 20:30" pubdate>
+          2025年6月11日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.1k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          9 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">一次使用火焰图排查性能问题的经验</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>最近正在给公司一个非常老的单体项目升级到微服务。</p>
+<p>在测试过程中、发现迁移过来的接口慢的不正常。使用火焰图找到了这个性能内鬼。</p>
+<span id="more"></span>
+
+
+
+<h1 id="1-排查过程"><a href="#1-排查过程" class="headerlink" title="1. 排查过程"></a>1. 排查过程</h1><p>迁移的原始接口响应时间为 300ms ，迁移过来以后测试结果为10s+ ，这显然不正常。</p>
+<h2 id="防火墙http包分析是内鬼吗？"><a href="#防火墙http包分析是内鬼吗？" class="headerlink" title="防火墙http包分析是内鬼吗？"></a>防火墙http包分析是内鬼吗？</h2><p>由于原接口方法逻辑未做修改，并且由于存在先例，最先想到的是公司服务器入口防火墙是内鬼。</p>
+<p>怀疑是防火墙做了http包分析过慢导致。</p>
+<p>这里使用  tcpdump分别对防火墙的入栈和出栈两侧抓包分析，发现并不是防火墙的问题。</p>
+<h2 id="arthas-trace"><a href="#arthas-trace" class="headerlink" title="arthas trace"></a>arthas trace</h2><p>随后用 arthas trace 对相关方法追踪了一下，发现是数据交换的mapper层方法非常慢，消耗了绝大部分时间。</p>
+<p>所以排查范围从网络链路缩小到 app内。</p>
+<p>虽然缩小到app内，但还是很迷惑，原方法逻辑并没有修改，且响应时间也很稳定。</p>
+<p>移植过来以后怎么会慢这么多，事已至此打一张火焰图看看，cpu到底消耗在哪里了。</p>
+<h2 id="分析火焰图"><a href="#分析火焰图" class="headerlink" title="分析火焰图"></a>分析火焰图</h2><p>arthas 集成了async-profiler 直接使用 <code>profiler start/stop</code>  就可以生成火焰图：</p>
+<p><img src="/image/2025-06-11-arthas-exprience.assets/image-20250612163431808.png" srcset="/img/loading.gif" lazyload alt="image-20250612163431808"></p>
+<p>通过火焰图发现85%的时间都消耗在了 com.fhs.trans.utils包下的方法。</p>
+<p>随机查了一下，发现是一个名为 easy-trans的插件， 功能是给VO做字段翻译转换的。</p>
+<p>然后简单的debug了一下这个方法，发现它在做转换的时候会递归遍历所有 vo的所有属性。如果属性是pojo那么还会遍历这个pojo的所有属性。</p>
+<p>恰巧我这个接口返回的数据量很大、属性也是多级的、就导致明明是内存操作也慢到10s级别。</p>
+<p>把这个插件按照接口忽略以后，响应时间恢复正常了。</p>
+<h2 id="还有内鬼？"><a href="#还有内鬼？" class="headerlink" title="还有内鬼？"></a>还有内鬼？</h2><p>本以为事情到此就告一段落了，再调试后续接口时又发现新的问题。</p>
+<p>部分ms级接口会不稳定的下降到s级别 。</p>
+<p>于是再次打了一张火焰图：</p>
+<p><img src="/image/2025-06-11-arthas-exprience.assets/image-20250612170511635.png" srcset="/img/loading.gif" lazyload alt="image-20250612170511635"></p>
+<p>发现在cpu调用中，JIT编译器退优化竟然占总采样的62%。</p>
+<p>幸运的是，迁移项目的jdk为17, 已经拥有JFR功能，并且问题还算容易复现。</p>
+<p>于是用jfr监听了一段接口调用的过程， 看看到底是什么东西在退优化。</p>
+<h2 id="抓了一个内鬼但不是主因"><a href="#抓了一个内鬼但不是主因" class="headerlink" title="抓了一个内鬼但不是主因"></a>抓了一个内鬼但不是主因</h2><p>在监听期间，一共有8个退优化事件，排除jdk本身的，只剩一个 jdbc 驱动的问题。</p>
+<p>是Druid连接池在初始化数据源时调用的方法，退优化的原因是  unstable_if （分支预测失败）。</p>
+<p>查了一下分支预测失败的原因有很多 （if过多等）。</p>
+<p><img src="/image/2025-06-11-arthas-exprience.assets/image-20250612171132115.png" srcset="/img/loading.gif" lazyload alt="image-20250612171132115"></p>
+<p>随后准备查看项目的mysql驱动依赖，进方法看看到底是怎么回事。直接让我逮到了！</p>
+<p>项目引入了一个比较新版本的mysql启动，不是常用的<code> 8.0.33</code></p>
+<p>随后将驱动降成常见版本，又打了一个jfr，退优化果然没了。</p>
+<p>但接口缓慢问题依然存在。</p>
+<h2 id="没什么办法，接着看火焰图吧"><a href="#没什么办法，接着看火焰图吧" class="headerlink" title="没什么办法，接着看火焰图吧"></a>没什么办法，接着看火焰图吧</h2><p>因为火焰图采样是对所有cpu同时采样，并且退优化这个问题不一定直接作用在接口调用栈上。</p>
+<p>因此这次我直接在业务方法调用栈上找，看看能否有一些收获。</p>
+<p><img src="/image/2025-06-11-arthas-exprience.assets/image-20250612171957912.png" srcset="/img/loading.gif" lazyload alt="image-20250612171957912"></p>
+<h2 id="逮到！"><a href="#逮到！" class="headerlink" title="逮到！"></a>逮到！</h2><p>一般来说是不会怀疑驱动器的，但是你这个parser占用了这么久到底是解析什么？</p>
+<p><img src="/image/2025-06-11-arthas-exprience.assets/image-20250612172049406.png" srcset="/img/loading.gif" lazyload alt="image-20250612172049406"></p>
+<p>还是同样的思路，正准备看看这个解析方法到底做了什么。 </p>
+<p>欸，这clickhouse的驱动依赖怎么这么陌生啊， 怎么还是apache开头的。</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-comment">&lt;!--        &lt;dependency&gt;--&gt;</span><br><span class="hljs-comment">&lt;!--            &lt;groupId&gt;org.apache.pulsar&lt;/groupId&gt;--&gt;</span><br><span class="hljs-comment">&lt;!--            &lt;artifactId&gt;pulsar-io-jdbc-clickhouse&lt;/artifactId&gt;--&gt;</span><br><span class="hljs-comment">&lt;!--        &lt;/dependency&gt;--&gt;</span><br></code></pre></td></tr></table></figure>
+
+
+
+<p>于是马上和原项目的驱动依赖对比了一下，发现这个依赖是同事无意间引入的。</p>
+<p>将所有ck相关依赖替换与原项目一致，解决问题！</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/java/" class="category-chain-item">java</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/%E4%BC%98%E5%8C%96/" class="print-no-link">#优化</a>
+      
+        <a href="/tags/JFR/" class="print-no-link">#JFR</a>
+      
+        <a href="/tags/Arthas/" class="print-no-link">#Arthas</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>一次使用火焰图排查性能问题的经验</div>
+      <div>http://example.com/2025/06/11/2025-06-11-arthas-exprience/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>John Doe</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年6月11日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2025/07/09/2025-07-08-mybatis-mapper-proxy/" title="mybatis">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">mybatis</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2025/02/18/2025-02-13-array-atomic-update/" title="原子性修改数组元素引发的思考">
+                        <span class="hidden-mobile">原子性修改数组元素引发的思考</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

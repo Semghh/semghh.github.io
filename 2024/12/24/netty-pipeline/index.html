@@ -1,0 +1,899 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="John Doe">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="关于Netty中重要的组件 EventLoop, Pipeline , Handler , FastThreadLocal ,ByteBuf ，Allocator等组件源码分析。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Netty中组件及源码">
+<meta property="og:url" content="http://example.com/2024/12/24/netty-pipeline/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="关于Netty中重要的组件 EventLoop, Pipeline , Handler , FastThreadLocal ,ByteBuf ，Allocator等组件源码分析。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-12-23T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-06-10T07:40:55.067Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="netty">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>Netty中组件及源码 - Hexo</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"example.com","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>Semghh&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Netty中组件及源码"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-12-24 00:00" pubdate>
+          2024年12月24日 凌晨
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.8k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          24 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">Netty中组件及源码</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>关于Netty中重要的组件 EventLoop, Pipeline , Handler , FastThreadLocal ,ByteBuf ，Allocator等组件源码分析。</p>
+<span id="more"></span>
+
+
+
+<h1 id="1-组件"><a href="#1-组件" class="headerlink" title="1. 组件"></a>1. 组件</h1><h2 id="1-1-DefaultChannelPipeline-组件"><a href="#1-1-DefaultChannelPipeline-组件" class="headerlink" title="1.1   DefaultChannelPipeline  组件"></a>1.1   DefaultChannelPipeline  组件</h2><p>Pipeline是Netty异步处理的核心，开发者实现将Handler(处理回调)注册到Pipeline中。 Pipeline注册到EventLoop中，</p>
+<p>当io.netty.channel.Channel监听到了IO事件以后，会将Message传播到 Pipeline中。</p>
+<p>DefaultChannelPipeline是 ChannelPipeline的默认实现。</p>
+<p>整个Pipeline就是责任链模式。</p>
+<blockquote>
+<p>责任链设计思路的核心就是：每个handler都处理自己份内的事儿，当前的handler处理消息完毕，event传递到下一个handler。</p>
+<p>使用责任链值得注意的点： Handler的先后顺序有讲究，需要特别注意前后Handler对Message的传递情况。</p>
+<p>Netty有入站、出站2种event区分。  “引用计数对象”的retain 和 release。</p>
+</blockquote>
+<h3 id="fireChannelRead-方法"><a href="#fireChannelRead-方法" class="headerlink" title="fireChannelRead() 方法"></a><code>fireChannelRead()</code> 方法</h3><p>Pipeline的<code>fireChannelRead()</code> 和  context 的<code>fireChannelRead()</code> 传递源头是不同的。</p>
+<blockquote>
+<p>pipeline 从head传播</p>
+<p>context 从下一个handler开始传播</p>
+</blockquote>
+<p>每一个io.netty.channel.Channel都有独立的Pipeline。每一个Pipeline的Handler链都有 Head 和 Tail节点。</p>
+<p>pipeline 从head传播:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">//DefaultChannelPipeline.java</span><br>	<span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> ChannelPipeline <span class="hljs-title function_">fireChannelRead</span><span class="hljs-params">(Object msg)</span> &#123;<br>        <span class="hljs-comment">//传入了head节点。</span><br>        AbstractChannelHandlerContext.invokeChannelRead(head, msg);<br>        <span class="hljs-keyword">return</span> <span class="hljs-built_in">this</span>;<br>    &#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+<p>context 从下一个handler开始传播:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">//AbstractChannelHandlerContext.java</span><br>	<span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> ChannelHandlerContext <span class="hljs-title function_">fireChannelRead</span><span class="hljs-params">(<span class="hljs-keyword">final</span> Object msg)</span> &#123;<br>        <span class="hljs-comment">//从下一个支持channel_read 事件的handler，然后开始传播</span><br>        <span class="hljs-comment">//findContextInbound是netty内部使用的,用于过滤 handler的</span><br>        <span class="hljs-comment">//每个handler可以设置自己支持的event callback。</span><br>        invokeChannelRead(findContextInbound(MASK_CHANNEL_READ), msg);<br>        <span class="hljs-keyword">return</span> <span class="hljs-built_in">this</span>;<br>    &#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+<h3 id="DefaultChannelPipeline写出数据的流程"><a href="#DefaultChannelPipeline写出数据的流程" class="headerlink" title="DefaultChannelPipeline写出数据的流程"></a>DefaultChannelPipeline写出数据的流程</h3><p><code>channel.writeAndFlush()</code> 调用了<code>AbstractChannel.write(Object,boolean,ChannelPromise)</code>和 <code>AbstractChannel.flush()</code>两个方法。</p>
+<blockquote>
+<p><code>flush()</code> 方法做的操作就是将  ChannelOutboundBuffer内保存的消息标记输出，并调用 <code>AbstractChannel.flush0()</code>方法，向远程的socket写出数据。</p>
+</blockquote>
+<p>如果调用pipeline的write方法，消息将通过TailContext层层向上传播，直到HeadContext 统一写出为止。</p>
+<p>下面是源码分析：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">//AbstractChannelHandlerContext.java</span><br><span class="hljs-comment">//TailContext是  AbstractChannelHandlerContext  上下文的子类。因此writeAndFlush最后调用了这个write</span><br><span class="hljs-keyword">public</span> ChannelFuture <span class="hljs-title function_">writeAndFlush</span><span class="hljs-params">(Object msg, ChannelPromise promise)</span> &#123;<br>    write(msg, <span class="hljs-literal">true</span>, promise);<span class="hljs-comment">//调用了自己的write()</span><br>    <span class="hljs-keyword">return</span> promise;<br>&#125;<br><br><br><span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">write</span><span class="hljs-params">(Object msg, <span class="hljs-type">boolean</span> flush, ChannelPromise promise)</span> &#123;<br>        ObjectUtil.checkNotNull(msg, <span class="hljs-string">&quot;msg&quot;</span>);<br>        <span class="hljs-keyword">try</span> &#123;<br>            <span class="hljs-keyword">if</span> (isNotValidPromise(promise, <span class="hljs-literal">true</span>)) &#123; <span class="hljs-comment">//如果promise不合法，就取消写入</span><br>                ReferenceCountUtil.release(msg);<br>                <span class="hljs-comment">// cancelled</span><br>                <span class="hljs-keyword">return</span>;<br>            &#125;<br>        &#125; <span class="hljs-keyword">catch</span> (RuntimeException e) &#123;<br>            ReferenceCountUtil.release(msg);<br>            <span class="hljs-keyword">throw</span> e;<br>        &#125;<br>		<span class="hljs-comment">//从 context链条中向前找，找到第一出站HandlerContext</span><br>        <span class="hljs-keyword">final</span> <span class="hljs-type">AbstractChannelHandlerContext</span> <span class="hljs-variable">next</span> <span class="hljs-operator">=</span> findContextOutbound(flush ?<br>                (MASK_WRITE | MASK_FLUSH) : MASK_WRITE);<br>        <span class="hljs-keyword">final</span> <span class="hljs-type">Object</span> <span class="hljs-variable">m</span> <span class="hljs-operator">=</span> pipeline.touch(msg, next);<br>        <span class="hljs-type">EventExecutor</span> <span class="hljs-variable">executor</span> <span class="hljs-operator">=</span> next.executor();<br>        <span class="hljs-keyword">if</span> (executor.inEventLoop()) &#123;<br>            <span class="hljs-keyword">if</span> (flush) &#123;<br>                next.invokeWriteAndFlush(m, promise);<br>            &#125; <span class="hljs-keyword">else</span> &#123;<br>                next.invokeWrite(m, promise);<br>            &#125;<br>        &#125; <span class="hljs-keyword">else</span> &#123;<br>            <span class="hljs-keyword">final</span> <span class="hljs-type">WriteTask</span> <span class="hljs-variable">task</span> <span class="hljs-operator">=</span> WriteTask.newInstance(next, m, promise, flush);<br>            <span class="hljs-keyword">if</span> (!safeExecute(executor, task, promise, m, !flush)) &#123;<br>                <span class="hljs-comment">// We failed to submit the WriteTask. We need to cancel it so we decrement the pending bytes</span><br>                <span class="hljs-comment">// and put it back in the Recycler for re-use later.</span><br>                <span class="hljs-comment">//</span><br>                <span class="hljs-comment">// See https://github.com/netty/netty/issues/8343.</span><br>                task.cancel();<br>            &#125;<br>        &#125;<br>    &#125;<br><br>	<br>	<span class="hljs-keyword">void</span> <span class="hljs-title function_">invokeWriteAndFlush</span><span class="hljs-params">(Object msg, ChannelPromise promise)</span> &#123;<br>        <span class="hljs-keyword">if</span> (invokeHandler()) &#123;<br>            invokeWrite0(msg, promise);<br>            invokeFlush0();<br>        &#125; <span class="hljs-keyword">else</span> &#123;<br>            writeAndFlush(msg, promise);<br>        &#125;<br>    &#125;<br><br>    <span class="hljs-keyword">void</span> <span class="hljs-title function_">invokeWrite</span><span class="hljs-params">(Object msg, ChannelPromise promise)</span> &#123;<br>        <span class="hljs-keyword">if</span> (invokeHandler()) &#123; <span class="hljs-comment">//检测ChannelHandler. handlerAdded(ChannelHandlerContext)是否已经被调用。</span><br>            invokeWrite0(msg, promise);<br>        &#125; <span class="hljs-keyword">else</span> &#123;<br>            write(msg, promise);<br>        &#125;<br>    &#125;<br><br><span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">invokeWrite0</span><span class="hljs-params">(Object msg, ChannelPromise promise)</span> &#123;<br>        <span class="hljs-keyword">try</span> &#123;<br>            <span class="hljs-comment">// DON&#x27;T CHANGE</span><br>            <span class="hljs-comment">// Duplex handlers implements both out/in interfaces causing a scalability issue</span><br>            <span class="hljs-comment">// see https://bugs.openjdk.org/browse/JDK-8180450</span><br>            <span class="hljs-keyword">final</span> <span class="hljs-type">ChannelHandler</span> <span class="hljs-variable">handler</span> <span class="hljs-operator">=</span> handler();<br>            <span class="hljs-keyword">final</span> DefaultChannelPipeline.<span class="hljs-type">HeadContext</span> <span class="hljs-variable">headContext</span> <span class="hljs-operator">=</span> pipeline.head;<br>            <span class="hljs-keyword">if</span> (handler == headContext) &#123;<br>                headContext.write(<span class="hljs-built_in">this</span>, msg, promise);<br>            &#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (handler <span class="hljs-keyword">instanceof</span> ChannelDuplexHandler) &#123;<br>                ((ChannelDuplexHandler) handler).write(<span class="hljs-built_in">this</span>, msg, promise);<br>            &#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (handler <span class="hljs-keyword">instanceof</span> ChannelOutboundHandlerAdapter) &#123;<br>                ((ChannelOutboundHandlerAdapter) handler).write(<span class="hljs-built_in">this</span>, msg, promise);<br>            &#125; <span class="hljs-keyword">else</span> &#123;<br>                ((ChannelOutboundHandler) handler).write(<span class="hljs-built_in">this</span>, msg, promise);<br>            &#125;<br>        &#125; <span class="hljs-keyword">catch</span> (Throwable t) &#123;<br>            notifyOutboundHandlerException(t, promise);<br>        &#125;<br>    &#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h4 id="写出数据是否有线程安全问题？"><a href="#写出数据是否有线程安全问题？" class="headerlink" title="写出数据是否有线程安全问题？"></a>写出数据是否有线程安全问题？</h4><p><code>write()</code> 、<code>writeAndFlush()</code> 方法，都会将写出的消息(Object对象) 通过pipeline层层处理传递，最终交付给 HeadContext对象。</p>
+<p>虽然每个ChannelHandler可能绑定了不同的 executor，但最终写出操作都由<code>HeadContext</code>来完成。 HeadContext对象由pipeline创建，它绑定的executor是reactor线程。因此不会出现线程安全问题。</p>
+<h4 id="writeAndFlush比write多了什么？"><a href="#writeAndFlush比write多了什么？" class="headerlink" title="writeAndFlush比write多了什么？"></a><code>writeAndFlush</code>比<code>write</code>多了什么？</h4><p>AbstractChannel内拥有一个 Unsafe对象，它来完成数据的交换任务。</p>
+<p>数据写出时，有一个缓冲区（ChannelOutboundBuffer），如果消息不flush的话，消息不会向socket发出。</p>
+<p><code>write()</code>消息时，会把消息添加到ChannelOutboundBuffer， 当调用flush以后，会把buffer内所有消息都发射出去。</p>
+<p>HeadContext 的<code>write()</code>方法由Netty的Unsafe接口写出数据。</p>
+<p>Unsafe负责io.netty.channel.Channel中底层的IO操作。</p>
+<p>Unsafe 有一个 ChannelOutboundBuffer对象，是channel写出数据的缓冲区。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">//AbstructUnsafe的 write方法</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">write</span><span class="hljs-params">(Object msg, ChannelPromise promise)</span> &#123;<br>            assertEventLoop();<br>			<span class="hljs-comment">//拿到了内部的ChannelOutboundBuffer缓冲区</span><br>            <span class="hljs-type">ChannelOutboundBuffer</span> <span class="hljs-variable">outboundBuffer</span> <span class="hljs-operator">=</span> <span class="hljs-built_in">this</span>.outboundBuffer;<br>            <span class="hljs-keyword">if</span> (outboundBuffer == <span class="hljs-literal">null</span>) &#123;<br>                <span class="hljs-keyword">try</span> &#123;<br>                    <span class="hljs-comment">// release message now to prevent resource-leak</span><br>                    ReferenceCountUtil.release(msg);<br>                &#125; <span class="hljs-keyword">finally</span> &#123;<br>                    <span class="hljs-comment">//如果ChannelOutboundBuffer是空，那么证明这个channel被关闭了。</span><br>                    <span class="hljs-comment">//所以设置ChannelPromise为失败。</span><br>                    <span class="hljs-comment">//如果ChannelOutboundBuffer不空，就处理剩余数据。将在flush0中处理。</span><br>                    safeSetFailure(promise,<br>                            newClosedChannelException(initialCloseCause, <span class="hljs-string">&quot;write(Object, ChannelPromise)&quot;</span>));<br>                &#125;<br>                <span class="hljs-keyword">return</span>;<br>            &#125;<br>            <span class="hljs-type">int</span> size;<br>            <span class="hljs-keyword">try</span> &#123;<br>                msg = filterOutboundMessage(msg);<br>                <span class="hljs-comment">//对消息大小进行评估，若无法评估返回&lt;0的int</span><br>                size = pipeline.estimatorHandle().size(msg);<br>                <span class="hljs-keyword">if</span> (size &lt; <span class="hljs-number">0</span>) &#123;<br>                    size = <span class="hljs-number">0</span>;<br>                &#125;<br>            &#125; <span class="hljs-keyword">catch</span> (Throwable t) &#123;<br>                <span class="hljs-keyword">try</span> &#123;<br>                    ReferenceCountUtil.release(msg);<br>                &#125; <span class="hljs-keyword">finally</span> &#123;<br>                    safeSetFailure(promise, t);<br>                &#125;<br>                <span class="hljs-keyword">return</span>;<br>            &#125;<br>			<span class="hljs-comment">//只是将传入的message写入buffer中（而没有flush）。一旦消息完成写入以后，promise将会收到通知</span><br>            outboundBuffer.addMessage(msg, size, promise);<br>        &#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">//ChannelOutboundBuffer.java</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">addMessage</span><span class="hljs-params">(Object msg, <span class="hljs-type">int</span> size, ChannelPromise promise)</span> &#123;<br>    <span class="hljs-type">Entry</span> <span class="hljs-variable">entry</span> <span class="hljs-operator">=</span> Entry.newInstance(msg, size, total(msg), promise);<br>    <span class="hljs-keyword">if</span> (tailEntry == <span class="hljs-literal">null</span>) &#123;<br>        flushedEntry = <span class="hljs-literal">null</span>;<br>    &#125; <span class="hljs-keyword">else</span> &#123;<br>        <span class="hljs-type">Entry</span> <span class="hljs-variable">tail</span> <span class="hljs-operator">=</span> tailEntry;<br>        tail.next = entry;<br>    &#125;<br>    tailEntry = entry;<br>    <span class="hljs-keyword">if</span> (unflushedEntry == <span class="hljs-literal">null</span>) &#123;<br>        unflushedEntry = entry;<br>    &#125;<br><br>    <span class="hljs-comment">// Touch the message to make it easier to debug buffer leaks.</span><br><br>    <span class="hljs-comment">// this save both checking against the ReferenceCounted interface</span><br>    <span class="hljs-comment">// and makes better use of virtual calls vs interface ones</span><br>    <span class="hljs-keyword">if</span> (msg <span class="hljs-keyword">instanceof</span> AbstractReferenceCountedByteBuf) &#123;<br>        ((AbstractReferenceCountedByteBuf) msg).touch();<br>    &#125; <span class="hljs-keyword">else</span> &#123;<br>        ReferenceCountUtil.touch(msg);<br>    &#125;<br><br>    <span class="hljs-comment">// increment pending bytes after adding message to the unflushed arrays.</span><br>    <span class="hljs-comment">// See https://github.com/netty/netty/issues/1619</span><br>    incrementPendingOutboundBytes(entry.pendingSize, <span class="hljs-literal">false</span>);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+<p>当真正调用了 <code>AbstractUnsafe.flush()</code> 标记消息的flush状态，并<code>flush0()</code> 以后，才会调用<code>doWrite()</code>写到remote socket</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">flush</span><span class="hljs-params">()</span> &#123;<br>    assertEventLoop();<br><br>    <span class="hljs-type">ChannelOutboundBuffer</span> <span class="hljs-variable">outboundBuffer</span> <span class="hljs-operator">=</span> <span class="hljs-built_in">this</span>.outboundBuffer;<br>    <span class="hljs-keyword">if</span> (outboundBuffer == <span class="hljs-literal">null</span>) &#123;<br>        <span class="hljs-keyword">return</span>;<br>    &#125;<br><br>    outboundBuffer.addFlush();<br>    flush0();<br>&#125;<br><br><span class="hljs-meta">@SuppressWarnings(&quot;deprecation&quot;)</span><br><span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">flush0</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-keyword">if</span> (inFlush0) &#123;<br>        <span class="hljs-comment">// Avoid re-entrance</span><br>        <span class="hljs-keyword">return</span>;<br>    &#125;<br><br>    <span class="hljs-keyword">final</span> <span class="hljs-type">ChannelOutboundBuffer</span> <span class="hljs-variable">outboundBuffer</span> <span class="hljs-operator">=</span> <span class="hljs-built_in">this</span>.outboundBuffer;<br>    <span class="hljs-keyword">if</span> (outboundBuffer == <span class="hljs-literal">null</span> || outboundBuffer.isEmpty()) &#123;<br>        <span class="hljs-keyword">return</span>;<br>    &#125;<br><br>    inFlush0 = <span class="hljs-literal">true</span>;<br><br>    <span class="hljs-comment">// Mark all pending write requests as failure if the channel is inactive.</span><br>    <span class="hljs-keyword">if</span> (!isActive()) &#123;<br>        <span class="hljs-keyword">try</span> &#123;<br>            <span class="hljs-comment">// Check if we need to generate the exception at all.</span><br>            <span class="hljs-keyword">if</span> (!outboundBuffer.isEmpty()) &#123;<br>                <span class="hljs-keyword">if</span> (isOpen()) &#123;<br>                    outboundBuffer.failFlushed(<span class="hljs-keyword">new</span> <span class="hljs-title class_">NotYetConnectedException</span>(), <span class="hljs-literal">true</span>);<br>                &#125; <span class="hljs-keyword">else</span> &#123;<br>                    <span class="hljs-comment">// Do not trigger channelWritabilityChanged because the channel is closed already.</span><br>                    outboundBuffer.failFlushed(newClosedChannelException(initialCloseCause, <span class="hljs-string">&quot;flush0()&quot;</span>), <span class="hljs-literal">false</span>);<br>                &#125;<br>            &#125;<br>        &#125; <span class="hljs-keyword">finally</span> &#123;<br>            inFlush0 = <span class="hljs-literal">false</span>;<br>        &#125;<br>        <span class="hljs-keyword">return</span>;<br>    &#125;<br><br>    <span class="hljs-keyword">try</span> &#123;<br>        doWrite(outboundBuffer);<br>    &#125; <span class="hljs-keyword">catch</span> (Throwable t) &#123;<br>        handleWriteError(t);<br>    &#125; <span class="hljs-keyword">finally</span> &#123;<br>        inFlush0 = <span class="hljs-literal">false</span>;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 id="1-2-TailContext-组件"><a href="#1-2-TailContext-组件" class="headerlink" title="1.2 TailContext 组件"></a>1.2 TailContext 组件</h2><p>DefaultChannelPipeline的尾节点类型 TailContext。</p>
+<p>在Handler消费一个ReferenceCounted对象时，必须要先调用<code>retain()</code>防止它被意外回收。</p>
+<p>这么做的原因在于，DefaultChannelPipeline的尾节点，默认会释放1次ReferenceCounted对象的引用。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">//TailContext</span><br>	<span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">onUnhandledInboundMessage</span><span class="hljs-params">(Object msg)</span> &#123;<br>        <span class="hljs-keyword">try</span> &#123;<br>            logger.debug(<br>                    <span class="hljs-string">&quot;Discarded inbound message &#123;&#125; that reached at the tail of the pipeline. &quot;</span> +<br>                            <span class="hljs-string">&quot;Please check your pipeline configuration.&quot;</span>, msg);<br>        &#125; <span class="hljs-keyword">finally</span> &#123;<br>            ReferenceCountUtil.release(msg);<br>        &#125;<br>    &#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+<h2 id="1-3-DefaultChannelHandlerContext-组件"><a href="#1-3-DefaultChannelHandlerContext-组件" class="headerlink" title="1.3 DefaultChannelHandlerContext 组件"></a>1.3 DefaultChannelHandlerContext 组件</h2><p>默认的HandlerContext对象。</p>
+<p>由于Pipeline的存在，在这条链上的Handler都有上下游的关系。 而有些Handler是 Shareable的，向上下游传播状态信息需要则需要借助 Context。</p>
+<p>万幸的是Netty提供了这样的功能（当然，对于非Shareable的Handler ， Netty更推荐成员内部类的方式，它更直观简洁）。</p>
+<p>使用<code> attr()</code> 在上下文之间传递状态。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">//DefaultChannelHandlerContext.java</span><br>	<span class="hljs-keyword">public</span> &lt;T&gt; Attribute&lt;T&gt; <span class="hljs-title function_">attr</span><span class="hljs-params">(AttributeKey&lt;T&gt; key)</span> &#123;<br>        <span class="hljs-comment">//实际上是 io.netty.channel.Channel.attr() 在工作</span><br>        <span class="hljs-keyword">return</span> channel().attr(key);<br>    &#125;<br></code></pre></td></tr></table></figure>
+
+
+
+<p>context的attr绑定在了 Channel中 ,  io.netty.channel.Channel 继承了DefaultAttributeMap。</p>
+<p>DefaultAttributeMap 是属性存储的实现。</p>
+<h2 id="1-4-ChannelOutboundBuffer"><a href="#1-4-ChannelOutboundBuffer" class="headerlink" title="1.4  ChannelOutboundBuffer"></a>1.4  ChannelOutboundBuffer</h2><h3 id="为什么要设计这个Buffer"><a href="#为什么要设计这个Buffer" class="headerlink" title="为什么要设计这个Buffer"></a>为什么要设计这个Buffer</h3><ol>
+<li><p>首先他是一个buffer，拥有buffer的作用和好处。</p>
+</li>
+<li><p>通过高水位线，控制channel是否不可写。</p>
+<p>当超过高水位线后。 unwritable 标志位将设置非0值。 只有unwritable&#x3D;&#x3D;0时才表示channel可写。</p>
+</li>
+<li><p>触发<code>ChannelWritabilityChanged</code>（通道可写状态改变事件）。</p>
+<p>Netty设计了一个 channel可写数据大小的水位线。</p>
+<p>在ChannelOutboundBuffer中的消息实际还没有被写入socket中。</p>
+<p>当ChannelOutboundBuffer中等待写的数据大小超过水位线以后，将更新 unwritable 的状态。当由0变化为&gt;0时，将会触发<code>ChannelWritabilityChanged</code>事件。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">//ChannelOutboundBuffer</span><br>    <br><span class="hljs-comment">//添加消息。但没有flush。主要是在更新 消息Entry的状态。</span><br>	<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">addMessage</span><span class="hljs-params">(Object msg, <span class="hljs-type">int</span> size, ChannelPromise promise)</span> &#123;<br>        <span class="hljs-type">Entry</span> <span class="hljs-variable">entry</span> <span class="hljs-operator">=</span> Entry.newInstance(msg, size, total(msg), promise);<br>        <span class="hljs-keyword">if</span> (tailEntry == <span class="hljs-literal">null</span>) &#123;<br>            flushedEntry = <span class="hljs-literal">null</span>;<br>        &#125; <span class="hljs-keyword">else</span> &#123;<br>            <span class="hljs-type">Entry</span> <span class="hljs-variable">tail</span> <span class="hljs-operator">=</span> tailEntry;<br>            tail.next = entry;<br>        &#125;<br>        tailEntry = entry;<br>        <span class="hljs-keyword">if</span> (unflushedEntry == <span class="hljs-literal">null</span>) &#123;<br>            unflushedEntry = entry;<br>        &#125;<br><br>        <span class="hljs-keyword">if</span> (msg <span class="hljs-keyword">instanceof</span> AbstractReferenceCountedByteBuf) &#123;<br>            ((AbstractReferenceCountedByteBuf) msg).touch();<br>        &#125; <span class="hljs-keyword">else</span> &#123;<br>            ReferenceCountUtil.touch(msg);<br>        &#125;<br><br>        <span class="hljs-comment">// increment pending bytes after adding message to the unflushed arrays.</span><br>        <span class="hljs-comment">// See https://github.com/netty/netty/issues/1619</span><br>        incrementPendingOutboundBytes(entry.pendingSize, <span class="hljs-literal">false</span>);<br>    &#125;<br><br>	<span class="hljs-comment">//增加 还没输出数据的占用的字节数量。</span><br>	<span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">incrementPendingOutboundBytes</span><span class="hljs-params">(<span class="hljs-type">long</span> size, <span class="hljs-type">boolean</span> invokeLater)</span> &#123;<br>        <span class="hljs-keyword">if</span> (size == <span class="hljs-number">0</span>) &#123;<br>            <span class="hljs-keyword">return</span>;<br>        &#125;<br><br>        <span class="hljs-type">long</span> <span class="hljs-variable">newWriteBufferSize</span> <span class="hljs-operator">=</span> TOTAL_PENDING_SIZE_UPDATER.addAndGet(<span class="hljs-built_in">this</span>, size);<br>        <span class="hljs-comment">//当占用字节数量超过了高水位。</span><br>        <span class="hljs-keyword">if</span> (newWriteBufferSize &gt; channel.config().getWriteBufferHighWaterMark()) &#123;<br>            <span class="hljs-comment">//更改 unwritable状态位的值</span><br>            setUnwritable(invokeLater);<br>        &#125;<br>    &#125;<br><br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">setUnwritable</span><span class="hljs-params">(<span class="hljs-type">boolean</span> invokeLater)</span> &#123;<br>        <span class="hljs-keyword">for</span> (;;) &#123;<br>            <span class="hljs-keyword">final</span> <span class="hljs-type">int</span> <span class="hljs-variable">oldValue</span> <span class="hljs-operator">=</span> unwritable;<br>            <span class="hljs-keyword">final</span> <span class="hljs-type">int</span> <span class="hljs-variable">newValue</span> <span class="hljs-operator">=</span> oldValue | <span class="hljs-number">1</span>; <span class="hljs-comment">//按位或。 无论原本值是几，最终结果值一定大于等于1</span><br>            <span class="hljs-keyword">if</span> (UNWRITABLE_UPDATER.compareAndSet(<span class="hljs-built_in">this</span>, oldValue, newValue)) &#123;<br>                <span class="hljs-keyword">if</span> (oldValue == <span class="hljs-number">0</span>) &#123;<br>                    <span class="hljs-comment">//当由0变为其他值时，触发通道可写性事件。是否稍后执行传播。false表示立即传播。</span><br>                    fireChannelWritabilityChanged(invokeLater);<br>                &#125;<br>                <span class="hljs-keyword">break</span>;<br>            &#125;<br>        &#125;<br>    &#125;<br><br>	<span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">fireChannelWritabilityChanged</span><span class="hljs-params">(<span class="hljs-type">boolean</span> invokeLater)</span> &#123;<br>        <span class="hljs-keyword">final</span> <span class="hljs-type">ChannelPipeline</span> <span class="hljs-variable">pipeline</span> <span class="hljs-operator">=</span> channel.pipeline();<br>        <span class="hljs-keyword">if</span> (invokeLater) &#123;<br>            <span class="hljs-comment">//稍后执行，添加到任务队列里。</span><br>            <span class="hljs-type">Runnable</span> <span class="hljs-variable">task</span> <span class="hljs-operator">=</span> fireChannelWritabilityChangedTask;<br>            <span class="hljs-keyword">if</span> (task == <span class="hljs-literal">null</span>) &#123;<br>                fireChannelWritabilityChangedTask = task = <span class="hljs-keyword">new</span> <span class="hljs-title class_">Runnable</span>() &#123;<br>                    <span class="hljs-meta">@Override</span><br>                    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">run</span><span class="hljs-params">()</span> &#123;<br>                        pipeline.fireChannelWritabilityChanged();<br>                    &#125;<br>                &#125;;<br>            &#125;<br>            channel.eventLoop().execute(task);<br>        &#125; <span class="hljs-keyword">else</span> &#123;<br>            <span class="hljs-comment">//立即执行（会在addMessage时立即执行）。</span><br>            pipeline.fireChannelWritabilityChanged();<br>        &#125;<br>    &#125;<br></code></pre></td></tr></table></figure></li>
+</ol>
+<h3 id="写数据流程"><a href="#写数据流程" class="headerlink" title="写数据流程"></a>写数据流程</h3><p>通过<code>AbstrachChannel</code>的<code>writeAndFlush()</code> 方法，我们知道期望写出的Messge，先通过pipeline的tail层层传递到 headContext，</p>
+<p>然后通过 ChannelOutboundBuffer，触发高水位线，改变 <code>isWritable()</code>的返回值。</p>
+<p>随后，调用了留给子类实现的抽象方法<code>AbstractChannel.doWrite()</code>  来写出数据。</p>
+<p>下面，我们看一下<code>NioSocketChannel.doWrite()</code>的实现。</p>
+<p>对于Nio来说最终调用写出数据一定是 <code>java.nio.channels.SocketChannel.write()</code>方法。</p>
+<p>TCP的 SO_SNDBUF参数会随着OS而改变，因此Netty为OS进行调整适配。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">doWrite</span><span class="hljs-params">(ChannelOutboundBuffer in)</span> <span class="hljs-keyword">throws</span> Exception &#123;<br>    <span class="hljs-type">SocketChannel</span> <span class="hljs-variable">ch</span> <span class="hljs-operator">=</span> javaChannel();<br>    <span class="hljs-comment">//获得自旋锁的次数</span><br>    <span class="hljs-type">int</span> <span class="hljs-variable">writeSpinCount</span> <span class="hljs-operator">=</span> config().getWriteSpinCount();<br>    <span class="hljs-keyword">do</span> &#123;<br>        <span class="hljs-keyword">if</span> (in.isEmpty()) &#123;<br>			<span class="hljs-comment">//清除 OP_WRITE感兴趣事件</span><br>            clearOpWrite();<br>            <span class="hljs-keyword">return</span>;<br>        &#125;<br><br>        <span class="hljs-comment">// Ensure the pending writes are made of ByteBufs only.</span><br>        <span class="hljs-type">int</span> <span class="hljs-variable">maxBytesPerGatheringWrite</span> <span class="hljs-operator">=</span> ((NioSocketChannelConfig) config).getMaxBytesPerGatheringWrite();<br>        ByteBuffer[] nioBuffers = in.nioBuffers(<span class="hljs-number">1024</span>, maxBytesPerGatheringWrite);<br>        <span class="hljs-type">int</span> <span class="hljs-variable">nioBufferCnt</span> <span class="hljs-operator">=</span> in.nioBufferCount();<br><br>        <span class="hljs-comment">// Always use nioBuffers() to workaround data-corruption.</span><br>        <span class="hljs-comment">// See https://github.com/netty/netty/issues/2761</span><br>        <span class="hljs-keyword">switch</span> (nioBufferCnt) &#123;<br>            <span class="hljs-keyword">case</span> <span class="hljs-number">0</span>:<br>                <span class="hljs-comment">// We have something else beside ByteBuffers to write so fallback to normal writes.</span><br>                writeSpinCount -= doWrite0(in);<br>                <span class="hljs-keyword">break</span>;<br>            <span class="hljs-keyword">case</span> <span class="hljs-number">1</span>: &#123;<br>                <span class="hljs-type">ByteBuffer</span> <span class="hljs-variable">buffer</span> <span class="hljs-operator">=</span> nioBuffers[<span class="hljs-number">0</span>];<br>                <span class="hljs-type">int</span> <span class="hljs-variable">attemptedBytes</span> <span class="hljs-operator">=</span> buffer.remaining();<br>                <span class="hljs-keyword">final</span> <span class="hljs-type">int</span> <span class="hljs-variable">localWrittenBytes</span> <span class="hljs-operator">=</span> ch.write(buffer);<br>                <span class="hljs-keyword">if</span> (localWrittenBytes &lt;= <span class="hljs-number">0</span>) &#123;<br>                    incompleteWrite(<span class="hljs-literal">true</span>);<br>                    <span class="hljs-keyword">return</span>;<br>                &#125;<br>                <span class="hljs-comment">//调整一次写入的数据量大小</span><br>                adjustMaxBytesPerGatheringWrite(attemptedBytes, localWrittenBytes, maxBytesPerGatheringWrite);<br>                <span class="hljs-comment">//将实际写入的数据量从ChannelOutboundBuffer扣除</span><br>                in.removeBytes(localWrittenBytes);<br>                --writeSpinCount;<br>                <span class="hljs-keyword">break</span>;<br>            &#125;<br>            <span class="hljs-keyword">default</span>: &#123;<br>                <span class="hljs-type">long</span> <span class="hljs-variable">attemptedBytes</span> <span class="hljs-operator">=</span> in.nioBufferSize();<br>                <span class="hljs-keyword">final</span> <span class="hljs-type">long</span> <span class="hljs-variable">localWrittenBytes</span> <span class="hljs-operator">=</span> ch.write(nioBuffers, <span class="hljs-number">0</span>, nioBufferCnt);<br>                <span class="hljs-keyword">if</span> (localWrittenBytes &lt;= <span class="hljs-number">0</span>) &#123;<br>                    incompleteWrite(<span class="hljs-literal">true</span>);<br>                    <span class="hljs-keyword">return</span>;<br>                &#125;<br>                <span class="hljs-comment">// Casting to int is safe because we limit the total amount of data in the nioBuffers to int above.</span><br>                adjustMaxBytesPerGatheringWrite((<span class="hljs-type">int</span>) attemptedBytes, (<span class="hljs-type">int</span>) localWrittenBytes,<br>                        maxBytesPerGatheringWrite);<br>                in.removeBytes(localWrittenBytes);<br>                --writeSpinCount;<br>                <span class="hljs-keyword">break</span>;<br>            &#125;<br>        &#125;<br>    &#125; <span class="hljs-keyword">while</span> (writeSpinCount &gt; <span class="hljs-number">0</span>);<br><br>    <span class="hljs-comment">//是否设置 OP_WRITE</span><br>    incompleteWrite(writeSpinCount &lt; <span class="hljs-number">0</span>);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 id="1-5-FastThreadLocal"><a href="#1-5-FastThreadLocal" class="headerlink" title="1.5 FastThreadLocal"></a>1.5 FastThreadLocal</h2><p>FastThreadLocal是   ThreadLocal的一个变种。  使用FastThreadLocalThread(继承自Thread，内部有InternalThreadLocalMap)来访问FastThreadLocal时可以提供更好的访问性能 。</p>
+<p>FastThreadLocal为什么快？</p>
+<p>FastThreadLocal 通过索引常量，从数组中读取数据。 而不是使用 hashcode ,hash table 来寻找变量 ，每一个ThreadLocal对象都存储了一个int类型的索引。表示他在InternalThreadLocalMap中的位置。</p>
+<p>虽然比使用hashtable只有轻微的性能优势，  但在频繁访问ThreadLocal的场景下，非常有用。</p>
+<p>为了使用这样的优势（FastThreadLocal），你必须使用 FastThreadLocalThread或它的子类。</p>
+<p>默认情况下，由io.netty.util.concurrent.DefaultThreadFactory创建的线程都是 FastThreadLocalThread 的原因也是如此（获得更高的ThreadLocal性能）。</p>
+<p>reference <a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/662172520">https://zhuanlan.zhihu.com/p/662172520</a></p>
+<p>必须是Thread的子类FastThreadLocalThread才可以使用 FastThreadLocal。</p>
+<p>每一个FastThreadLocal对象都有一个 InternalThreadLocalMap的内部成员，以及 一个 Int类型表示index , 在InternalThreadLocalMap指定索引的位置存放ThreadLocal存储的数据。</p>
+<blockquote>
+<p>详细流程参看 <code>ThreadLocal.get()</code>方法</p>
+</blockquote>
+<p>FastThreadLocal 允许存储null值 ，null代表了一种合法的存储值。</p>
+<h3 id="InternalThreadLocalMap"><a href="#InternalThreadLocalMap" class="headerlink" title="InternalThreadLocalMap"></a>InternalThreadLocalMap</h3><p>FastThreadLocal内部存储映射，是FastThreadLocal的设计核心。</p>
+<p>所有的存储对象，都存放在了 <code>Object[]</code> 数组中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">private</span> Object[] indexedVariables;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h3 id="get"><a href="#get" class="headerlink" title="get()"></a><code>get()</code></h3><p>首先拿到FastThreadLocalThread中的存储结构 InternalThreadLocalMap ，然后在 index位置上，获取数据。</p>
+<p>若该位置为UNSET表示这个ThreadLocal还没有设置值或者值已经被清空。(注意，FastThreadLocal中可以存储一个null ，null可以拥有实际的业务意义。)</p>
+<p>没有设置值，或者值被清空时， 存储的是UNSET对象。 我们可以<code>ThreadLocal.set(null);</code>来表示业务上这个值设置过，并且为null。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> V <span class="hljs-title function_">get</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-type">InternalThreadLocalMap</span> <span class="hljs-variable">threadLocalMap</span> <span class="hljs-operator">=</span> InternalThreadLocalMap.get();<br>    <span class="hljs-type">Object</span> <span class="hljs-variable">v</span> <span class="hljs-operator">=</span> threadLocalMap.indexedVariable(index);<br>    <span class="hljs-keyword">if</span> (v != InternalThreadLocalMap.UNSET) &#123;<br>        <span class="hljs-keyword">return</span> (V) v;<br>    &#125;<br>    <span class="hljs-comment">//初始化一个默认值。</span><br>    <span class="hljs-keyword">return</span> initialize(threadLocalMap);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h3 id="removeAll"><a href="#removeAll" class="headerlink" title="removeAll()"></a><code>removeAll()</code></h3><p>移除绑定到当前线程的全部ThreadLocal。</p>
+<p>ThreadLocalMap中有一个slot存储了所有的ThreadLocal。 Slot中存放了一个<code>Set&lt;ThreadLocal&gt;</code> ,在 <code>ThradLocal.set()</code>时都会添加到Set中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">removeAll</span><span class="hljs-params">()</span> &#123;<br>        <span class="hljs-type">InternalThreadLocalMap</span> <span class="hljs-variable">threadLocalMap</span> <span class="hljs-operator">=</span> InternalThreadLocalMap.getIfSet();<br>        <span class="hljs-keyword">if</span> (threadLocalMap == <span class="hljs-literal">null</span>) &#123;<br>            <span class="hljs-keyword">return</span>;<br>        &#125;<br><br>        <span class="hljs-keyword">try</span> &#123;<br>            <span class="hljs-comment">//从slot中拿到所有的ThreadLocal，依次移除。</span><br>            <span class="hljs-type">Object</span> <span class="hljs-variable">v</span> <span class="hljs-operator">=</span> threadLocalMap.indexedVariable(VARIABLES_TO_REMOVE_INDEX);<br>            <span class="hljs-keyword">if</span> (v != <span class="hljs-literal">null</span> &amp;&amp; v != InternalThreadLocalMap.UNSET) &#123;<br>                <span class="hljs-meta">@SuppressWarnings(&quot;unchecked&quot;)</span><br>                Set&lt;FastThreadLocal&lt;?&gt;&gt; variablesToRemove = (Set&lt;FastThreadLocal&lt;?&gt;&gt;) v;<br>                FastThreadLocal&lt;?&gt;[] variablesToRemoveArray =<br>                        variablesToRemove.toArray(<span class="hljs-keyword">new</span> <span class="hljs-title class_">FastThreadLocal</span>[<span class="hljs-number">0</span>]);<br>                <span class="hljs-keyword">for</span> (FastThreadLocal&lt;?&gt; tlv: variablesToRemoveArray) &#123;<br>                    tlv.remove(threadLocalMap);<br>                &#125;<br>            &#125;<br>        &#125; <span class="hljs-keyword">finally</span> &#123;<br>            InternalThreadLocalMap.remove();<br>        &#125;<br>    &#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1>
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/java/" class="category-chain-item">java</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/netty/" class="print-no-link">#netty</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Netty中组件及源码</div>
+      <div>http://example.com/2024/12/24/netty-pipeline/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>John Doe</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2024年12月24日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/12/24/2025-02-12-mqtt-qos/" title="MQTT中 broker如何实现QoS">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">MQTT中 broker如何实现QoS</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/11/27/2024-11-27-start-with-unsafe/" title="从多个角度考量 Unsafe">
+                        <span class="hidden-mobile">从多个角度考量 Unsafe</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
