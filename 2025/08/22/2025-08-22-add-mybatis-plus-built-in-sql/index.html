@@ -1,0 +1,727 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="John Doe">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="最近在业务上频繁用到了  SELECT...FOR UPDATE 语法。 每个实体都需要写一份，所以想研究一下Mybatis-plus 是如何做到内置sql方法的。并新增自己的内置方法。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="增加MP内置sql方法">
+<meta property="og:url" content="http://example.com/2025/08/22/2025-08-22-add-mybatis-plus-built-in-sql/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="最近在业务上频繁用到了  SELECT...FOR UPDATE 语法。 每个实体都需要写一份，所以想研究一下Mybatis-plus 是如何做到内置sql方法的。并新增自己的内置方法。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-08-22T02:30:00.000Z">
+<meta property="article:modified_time" content="2025-08-22T08:59:46.973Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="mybatis">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>增加MP内置sql方法 - Hexo</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"example.com","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>Semghh&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="增加MP内置sql方法"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-08-22 10:30" pubdate>
+          2025年8月22日 上午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.3k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          12 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">增加MP内置sql方法</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>最近在业务上频繁用到了  <code>SELECT...FOR UPDATE</code> 语法。</p>
+<p>每个实体都需要写一份，所以想研究一下Mybatis-plus 是如何做到内置sql方法的。并新增自己的内置方法。</p>
+<span id="more"></span>
+
+
+
+
+
+<h1 id="1-思路"><a href="#1-思路" class="headerlink" title="1. 思路"></a>1. 思路</h1><p>捋清楚内置sql是如何工作的  –&gt; 添加自己新的方法 —&gt;  构建jar —&gt; 测试运行</p>
+<h1 id="2-内置sql构建过程"><a href="#2-内置sql构建过程" class="headerlink" title="2. 内置sql构建过程"></a>2. 内置sql构建过程</h1><h3 id="解析Mapper"><a href="#解析Mapper" class="headerlink" title="解析Mapper"></a>解析Mapper</h3><p>mp提供了MybatisMapperAnnotationBuilder   （Mapper注解构造器）替换了Mybatis 原本的MapperAnnotationBuilder。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">//MybatisMapperAnnotationBuilder.java</span><br>	<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">parse</span><span class="hljs-params">()</span> &#123;<br>        ...<br>        <span class="hljs-keyword">if</span> (!configuration.isResourceLoaded(resource)) &#123;<br>            ...<br>            <span class="hljs-keyword">try</span> &#123;<br>                <span class="hljs-comment">//如果是Mapper.class 的子类尝试解析注入</span><br>                <span class="hljs-keyword">if</span> (GlobalConfigUtils.isSupperMapperChildren(configuration, type)) &#123;<br>                    parserInjector();<br>                &#125;<br>            &#125; <span class="hljs-keyword">catch</span> (IncompleteElementException e) &#123;<br>                configuration.addIncompleteMethod(<span class="hljs-keyword">new</span> <span class="hljs-title class_">InjectorResolver</span>(<span class="hljs-built_in">this</span>));<br>            &#125;<br>            ...<br>        &#125;<br>		...<br>    &#125;	<br><br>	<span class="hljs-keyword">void</span> <span class="hljs-title function_">parserInjector</span><span class="hljs-params">()</span> &#123;<br>        GlobalConfigUtils.getSqlInjector(configuration).inspectInject(assistant, type);<br>    &#125;<br></code></pre></td></tr></table></figure>
+
+<p>在 <code>parse()</code> 方法中判断每一个传入的  <code>Class&lt;T&gt;</code> mapper ，如果它是 BaseMapper的子类，那么解析并注入自定义sql (<code>parserInjector()</code>)。</p>
+<h3 id="检查注入sql"><a href="#检查注入sql" class="headerlink" title="检查注入sql"></a>检查注入sql</h3><p>默认情况下，使用 DefaultSqlInjector 作为默认的注入器。</p>
+<p> <code>inspectInject</code> 检查注入方法如下，其中最关键的一步调用了  <code>getMethodList()</code> 获取内置的sql。随后循环注入到MappedStatement中</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">inspectInject</span><span class="hljs-params">(MapperBuilderAssistant builderAssistant, Class&lt;?&gt; mapperClass)</span> &#123;<br>    Class&lt;?&gt; modelClass = ReflectionKit.getSuperClassGenericType(mapperClass, Mapper.class, <span class="hljs-number">0</span>);<br>    <span class="hljs-keyword">if</span> (modelClass != <span class="hljs-literal">null</span>) &#123;<br>        <span class="hljs-type">String</span> <span class="hljs-variable">className</span> <span class="hljs-operator">=</span> mapperClass.toString();<br>        Set&lt;String&gt; mapperRegistryCache = GlobalConfigUtils.getMapperRegistryCache(builderAssistant.getConfiguration());<br>        <span class="hljs-keyword">if</span> (!mapperRegistryCache.contains(className)) &#123;<br>            <span class="hljs-type">TableInfo</span> <span class="hljs-variable">tableInfo</span> <span class="hljs-operator">=</span> TableInfoHelper.initTableInfo(builderAssistant, modelClass);<br>            List&lt;AbstractMethod&gt; methodList = <span class="hljs-built_in">this</span>.getMethodList(mapperClass, tableInfo);<br>            <span class="hljs-keyword">if</span> (CollectionUtils.isEmpty(methodList)) &#123;<br>                methodList = <span class="hljs-built_in">this</span>.getMethodList(builderAssistant.getConfiguration(), mapperClass, tableInfo);<br>            &#125;<br><br>            <span class="hljs-keyword">if</span> (CollectionUtils.isNotEmpty(methodList)) &#123;<br>                methodList.forEach((m) -&gt; &#123;<br>                    m.inject(builderAssistant, mapperClass, modelClass, tableInfo);<br>                &#125;);<br>            &#125; <span class="hljs-keyword">else</span> &#123;<br>                <span class="hljs-built_in">this</span>.logger.debug(className + <span class="hljs-string">&quot;, No effective injection method was found.&quot;</span>);<br>            &#125;<br><br>            mapperRegistryCache.add(className);<br>        &#125;<br>    &#125;<br><br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+<p> <code>DefaultSqlInjector.getMethodList()</code> 列出了自定义的sql。 其中每一个自定义sql都是  AbstractMethod类对象。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">DefaultSqlInjector</span> <span class="hljs-keyword">extends</span> <span class="hljs-title class_">AbstractSqlInjector</span> &#123;<br><br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> List&lt;AbstractMethod&gt; <span class="hljs-title function_">getMethodList</span><span class="hljs-params">(Configuration configuration, Class&lt;?&gt; mapperClass, TableInfo tableInfo)</span> &#123;<br>        GlobalConfig.<span class="hljs-type">DbConfig</span> <span class="hljs-variable">dbConfig</span> <span class="hljs-operator">=</span> GlobalConfigUtils.getDbConfig(configuration);<br>        Stream.Builder&lt;AbstractMethod&gt; builder = Stream.&lt;AbstractMethod&gt;builder()<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">Insert</span>(dbConfig.isInsertIgnoreAutoIncrementColumn()))<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">Delete</span>())<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">Update</span>())<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectCount</span>())<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectMaps</span>())<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectObjs</span>())<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectList</span>());<br>        <span class="hljs-keyword">if</span> (tableInfo.havePK()) &#123;<br>            builder.add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">DeleteById</span>())<br>                    .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">DeleteByIds</span>())<br>                    .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">UpdateById</span>())<br>                    .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectById</span>())<br>                    .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectByIdForUpdate</span>()) <span class="hljs-comment">//enhanced</span><br>                    .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectByIds</span>());<br>        &#125; <span class="hljs-keyword">else</span> &#123;<br>            logger.warn(String.format(<span class="hljs-string">&quot;%s ,Not found @TableId annotation, Cannot use Mybatis-Plus &#x27;xxById&#x27; Method.&quot;</span>,<br>                    tableInfo.getEntityType()));<br>        &#125;<br>        <span class="hljs-keyword">return</span> builder.build().collect(toList());<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>因此我们想要新增一个内置的 <code>select...for update</code>方法，只需要如上新增一个<code>com.baomidou.mybatisplus.core.injector.methods.SelectByIdForUpdate</code>类即可。</p>
+<h3 id="AbstractMethod是如何工作的"><a href="#AbstractMethod是如何工作的" class="headerlink" title="AbstractMethod是如何工作的"></a>AbstractMethod是如何工作的</h3><p>AbstractMethod对象是如何工作的，如何称为自定义sql？</p>
+<p>我们都知道， SqlSource是Mybatis中sql语句的对象。 AbstractMethod 调用父类的<code>createSqlSource</code>创建一个SqlSource对象 ,随后添加到MappedStatement中。</p>
+<p>下面是我的  <code>select...for udpate</code> 抽象方法对象：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">SelectByIdForUpdate</span> <span class="hljs-keyword">extends</span> <span class="hljs-title class_">AbstractMethod</span> &#123;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-title function_">SelectByIdForUpdate</span><span class="hljs-params">()</span>&#123;<br>        <span class="hljs-comment">//所有的未处理sql语句都作为字符串模板存储在SqlMethod枚举类中</span><br>        <span class="hljs-built_in">this</span>(SqlMethod.SELECT_BY_ID_FOR_UPDATE.getMethod());<br>    &#125;<br><br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * <span class="hljs-doctag">@param</span> methodName 方法名</span><br><span class="hljs-comment">     * <span class="hljs-doctag">@since</span> 3.5.0</span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-keyword">protected</span> <span class="hljs-title function_">SelectByIdForUpdate</span><span class="hljs-params">(String methodName)</span> &#123;<br>        <span class="hljs-built_in">super</span>(methodName);<br>    &#125;<br><br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> MappedStatement <span class="hljs-title function_">injectMappedStatement</span><span class="hljs-params">(Class&lt;?&gt; mapperClass, Class&lt;?&gt; modelClass, TableInfo tableInfo)</span> &#123;<br>        <span class="hljs-comment">//定义一个自己的 SELECT_BY_ID_FOR_UPDATE枚举类</span><br>        <span class="hljs-type">SqlMethod</span> <span class="hljs-variable">sqlMethod</span> <span class="hljs-operator">=</span> SqlMethod.SELECT_BY_ID_FOR_UPDATE;<br>        <span class="hljs-type">SqlSource</span> <span class="hljs-variable">sqlSource</span> <span class="hljs-operator">=</span> <span class="hljs-built_in">super</span>.createSqlSource(<br>                configuration,<br>            <span class="hljs-comment">//这里是简单格式化未处理的sql</span><br>            <span class="hljs-comment">//所有关键数据都来自于 TableInfo</span><br>                String.format(sqlMethod.getSql(),<br>                        sqlSelectColumns(tableInfo, <span class="hljs-literal">false</span>),<br>                        tableInfo.getTableName(),<br>                        tableInfo.getKeyColumn(),<br>                        tableInfo.getKeyProperty(),<br>                        tableInfo.getLogicDeleteSql(<span class="hljs-literal">true</span>, <span class="hljs-literal">true</span>)),<br>                Object.class);<br>        <span class="hljs-keyword">return</span> <span class="hljs-built_in">this</span>.addSelectMappedStatementForTable(mapperClass, methodName, sqlSource, tableInfo);<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>所有的未处理sql语句都作为字符串模板存储在SqlMethod枚举类中。</p>
+<p>定义一个自己的 SELECT_BY_ID_FOR_UPDATE枚举类 ，如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">enum</span> <span class="hljs-title class_">SqlMethod</span> &#123;<br>SELECT_BY_ID_FOR_UPDATE(<span class="hljs-string">&quot;selectByIdForUpdate&quot;</span>, <span class="hljs-string">&quot;根据ID 查询一条数据获得行锁&quot;</span>, <span class="hljs-string">&quot;SELECT %s FROM %s WHERE %s=#&#123;%s&#125; %s FOR UPDATE&quot;</span>),<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+<p>这里就是 mp最终存储sql的地方，我们按照TableInfo 填空即可  ， 随后添加到MappedStatement中， 即可被Mybatis框架使用了。</p>
+<h3 id="关键的-TableInfo"><a href="#关键的-TableInfo" class="headerlink" title="关键的 TableInfo"></a>关键的 TableInfo</h3><p>注意到所有的枚举类  SqlMethod都是类似于  <code>&quot;SELECT %s FROM %s WHERE %s=#&#123;%s&#125; %s FOR UPDATE&quot;</code>  等待填充的字符串模板。</p>
+<p>模板填充的关键信息均来自于 关键的TableInfo 。</p>
+<p>也就是说，如果我们新增的内置sql所需额外信息超过了  TableInfo 时，我们需要改写 TableInfo获取方法，增强额外的信息。</p>
+<h1 id="3-改写过程"><a href="#3-改写过程" class="headerlink" title="3. 改写过程"></a>3. 改写过程</h1><p>创建 MyBaseMapper 集成原本提供的BaseMapper :</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">package</span> com.baomidou.mybatisplus.core.mapper;<br><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> <span class="hljs-title class_">MyBaseMapper</span>&lt;T&gt; <span class="hljs-keyword">extends</span> <span class="hljs-title class_">BaseMapper</span>&lt;T&gt;&#123;<br>    <span class="hljs-keyword">public</span> T <span class="hljs-title function_">selectByIdForUpdate</span><span class="hljs-params">(Serializable id)</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+<p>创建 AbstractMethod 实现类 SelectByIdForUpdate ：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">package</span> com.baomidou.mybatisplus.core.injector.methods;<br><br><span class="hljs-keyword">import</span> com.baomidou.mybatisplus.core.enums.SqlMethod;<br><span class="hljs-keyword">import</span> com.baomidou.mybatisplus.core.injector.AbstractMethod;<br><span class="hljs-keyword">import</span> com.baomidou.mybatisplus.core.metadata.TableInfo;<br><span class="hljs-keyword">import</span> org.apache.ibatis.mapping.MappedStatement;<br><span class="hljs-keyword">import</span> org.apache.ibatis.mapping.SqlSource;<br><br><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@author</span> SEMGHH</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@date</span> 2025/8/22 9:57</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">SelectByIdForUpdate</span> <span class="hljs-keyword">extends</span> <span class="hljs-title class_">AbstractMethod</span> &#123;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-title function_">SelectByIdForUpdate</span><span class="hljs-params">()</span>&#123;<br>        <span class="hljs-built_in">this</span>(SqlMethod.SELECT_BY_ID_FOR_UPDATE.getMethod());<br>    &#125;<br><br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * <span class="hljs-doctag">@param</span> methodName 方法名</span><br><span class="hljs-comment">     * <span class="hljs-doctag">@since</span> 3.5.0</span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-keyword">protected</span> <span class="hljs-title function_">SelectByIdForUpdate</span><span class="hljs-params">(String methodName)</span> &#123;<br>        <span class="hljs-built_in">super</span>(methodName);<br>    &#125;<br><br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> MappedStatement <span class="hljs-title function_">injectMappedStatement</span><span class="hljs-params">(Class&lt;?&gt; mapperClass, Class&lt;?&gt; modelClass, TableInfo tableInfo)</span> &#123;<br>        <span class="hljs-type">SqlMethod</span> <span class="hljs-variable">sqlMethod</span> <span class="hljs-operator">=</span> SqlMethod.SELECT_BY_ID_FOR_UPDATE;<br><br>        <span class="hljs-type">SqlSource</span> <span class="hljs-variable">sqlSource</span> <span class="hljs-operator">=</span> <span class="hljs-built_in">super</span>.createSqlSource(<br>                configuration,<br>                String.format(sqlMethod.getSql(),<br>                        sqlSelectColumns(tableInfo, <span class="hljs-literal">false</span>),<br>                        tableInfo.getTableName(),<br>                        tableInfo.getKeyColumn(),<br>                        tableInfo.getKeyProperty(),<br>                        tableInfo.getLogicDeleteSql(<span class="hljs-literal">true</span>, <span class="hljs-literal">true</span>)),<br>                Object.class);<br>        <span class="hljs-keyword">return</span> <span class="hljs-built_in">this</span>.addSelectMappedStatementForTable(mapperClass, methodName, sqlSource, tableInfo);<br>    &#125;<br>&#125;<br><br></code></pre></td></tr></table></figure>
+
+
+
+
+
+<p>改写注入器：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">package</span> com.baomidou.mybatisplus.core.injector;<br><br><span class="hljs-keyword">import</span> com.baomidou.mybatisplus.core.config.GlobalConfig;<br><span class="hljs-keyword">import</span> com.baomidou.mybatisplus.core.injector.methods.*;<br><span class="hljs-keyword">import</span> com.baomidou.mybatisplus.core.metadata.TableInfo;<br><span class="hljs-keyword">import</span> com.baomidou.mybatisplus.core.toolkit.GlobalConfigUtils;<br><span class="hljs-keyword">import</span> org.apache.ibatis.session.Configuration;<br><span class="hljs-keyword">import</span> java.util.List;<br><span class="hljs-keyword">import</span> java.util.stream.Stream;<br><span class="hljs-keyword">import</span> <span class="hljs-keyword">static</span> java.util.stream.Collectors.toList;<br><br><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">DefaultSqlInjector</span> <span class="hljs-keyword">extends</span> <span class="hljs-title class_">AbstractSqlInjector</span> &#123;<br><br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> List&lt;AbstractMethod&gt; <span class="hljs-title function_">getMethodList</span><span class="hljs-params">(Configuration configuration, Class&lt;?&gt; mapperClass, TableInfo tableInfo)</span> &#123;<br>        GlobalConfig.<span class="hljs-type">DbConfig</span> <span class="hljs-variable">dbConfig</span> <span class="hljs-operator">=</span> GlobalConfigUtils.getDbConfig(configuration);<br>        Stream.Builder&lt;AbstractMethod&gt; builder = Stream.&lt;AbstractMethod&gt;builder()<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">Insert</span>(dbConfig.isInsertIgnoreAutoIncrementColumn()))<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">Delete</span>())<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">Update</span>())<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectCount</span>())<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectMaps</span>())<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectObjs</span>())<br>                .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectList</span>());<br>        <span class="hljs-keyword">if</span> (tableInfo.havePK()) &#123;<br>            builder.add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">DeleteById</span>())<br>                    .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">DeleteByIds</span>())<br>                    .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">UpdateById</span>())<br>                    .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectById</span>())<br>                    .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectByIdForUpdate</span>()) <span class="hljs-comment">//enhanced</span><br>                    .add(<span class="hljs-keyword">new</span> <span class="hljs-title class_">SelectByIds</span>());<br>        &#125; <span class="hljs-keyword">else</span> &#123;<br>            logger.warn(String.format(<span class="hljs-string">&quot;%s ,Not found @TableId annotation, Cannot use Mybatis-Plus &#x27;xxById&#x27; Method.&quot;</span>,<br>                    tableInfo.getEntityType()));<br>        &#125;<br>        <span class="hljs-keyword">return</span> builder.build().collect(toList());<br>    &#125;<br>&#125;<br><br></code></pre></td></tr></table></figure>
+
+
+
+<p>改写枚举类：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">package</span> com.baomidou.mybatisplus.core.enums;<br><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">enum</span> <span class="hljs-title class_">SqlMethod</span> &#123;<br> 	... <br>    SELECT_BY_ID_FOR_UPDATE(<span class="hljs-string">&quot;selectByIdForUpdate&quot;</span>, <span class="hljs-string">&quot;根据ID 查询一条数据获得行锁&quot;</span>, <span class="hljs-string">&quot;SELECT %s FROM %s WHERE %s=#&#123;%s&#125; %s FOR UPDATE&quot;</span>),<br>	...<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+<p>按照上一篇文章，优雅替换三方jar中的类，打一个本地的mp包。放到测试环境中测试：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@SpringBootApplication</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">FooApplication</span> &#123;<br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">main</span><span class="hljs-params">(String[] args)</span> &#123;<br>        <span class="hljs-type">ConfigurableApplicationContext</span> <span class="hljs-variable">run</span> <span class="hljs-operator">=</span> SpringApplication.run(FooApplication.class, args);<br>        <span class="hljs-type">OkayMapper</span> <span class="hljs-variable">bean</span> <span class="hljs-operator">=</span> run.getBean(OkayMapper.class);<br>        <span class="hljs-comment">//获得一个Mapper，调用它的selectByIdForUpdate</span><br>        <span class="hljs-type">Okay</span> <span class="hljs-variable">a</span> <span class="hljs-operator">=</span> bean.selectByIdForUpdate(<span class="hljs-string">&quot;a&quot;</span>);<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+<p>日志输出：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs java">==&gt;  Preparing: SELECT id FROM okay WHERE id=? FOR UPDATE<br>==&gt; Parameters: a(String)<br>&lt;==      Total: <span class="hljs-number">0</span><br>Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@620572db]<br>    <br><br>    <br>    <br>==&gt;  Preparing: SELECT id FROM okay WHERE id=? FOR UPDATE<br>==&gt; Parameters: a(String)<br>&lt;==    Columns: id<br>&lt;==        Row: a<br>&lt;==      Total: <span class="hljs-number">1</span><br>Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@620572db]<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/JAVA/" class="category-chain-item">JAVA</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/mybatis/" class="print-no-link">#mybatis</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>增加MP内置sql方法</div>
+      <div>http://example.com/2025/08/22/2025-08-22-add-mybatis-plus-built-in-sql/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>John Doe</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年8月22日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2025/08/10/2025-08-10-modify-3party-jar/" title="修改三方jar依赖">
+                        <span class="hidden-mobile">修改三方jar依赖</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
